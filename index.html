@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logicop</title>
+<link rel="icon" type="image/png" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="index.html"><img src="assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+  <nav>
+    <a href="index.html" class="active">Accueil</a>
+    <span id="navAccount"></span>
+  </nav>
+</div>
+
+<section class="hero-split">
+  <div class="hero-copy">
+    <div class="hero-copy-inner">
+      <p class="eyebrow">Espace Logicop</p>
+      <h1><span>Vos outils,</span><br><span>en un clic.</span></h1>
+      <p>Connectez-vous pour accéder aux outils qui vous ont été attribués.</p>
+      <a class="btn" href="login.html">Se connecter à mon espace</a>
+    </div>
+  </div>
+  <div class="hero-visual"><img src="assets/img/logo.bm.png" alt=""></div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="assets/js/supabase-config.js"></script>
+<script>renderNavAccount('navAccount', '');</script>
+</body>
+</html>
