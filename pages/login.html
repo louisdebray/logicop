@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connexion — Logicop</title>
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+  <nav>
+    <a href="../index.html">Accueil</a>
+  </nav>
+</div>
+
+<main style="max-width:420px;">
+  <div class="hero" style="padding-top:24px;">
+    <h1 style="font-size:1.6rem;">Connexion</h1>
+  </div>
+
+  <div class="step">
+    <div class="row">
+      <div class="field grow">
+        <label for="email">Email</label>
+        <input type="text" id="email" autocomplete="email">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field grow">
+        <label for="password">Mot de passe</label>
+        <input type="text" id="password" autocomplete="current-password" style="-webkit-text-security: disc;">
+      </div>
+    </div>
+    <div class="row">
+      <button id="btnSubmit" style="width:100%; justify-content:center;">Se connecter</button>
+    </div>
+    <div class="status" id="loginStatus"></div>
+  </div>
+
+  <footer>Logicop</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../assets/js/supabase-config.js"></script>
+<script>
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const btnSubmit = document.getElementById('btnSubmit');
+  const loginStatus = document.getElementById('loginStatus');
+
+  function showStatus(type, msg) {
+    loginStatus.className = 'status show ' + type;
+    loginStatus.textContent = msg;
+  }
+
+  async function redirectAfterLogin() {
+    const profile = await loadCurrentProfile();
+    if (profile && profile.is_admin) {
+      window.location.href = 'admin.html';
+    } else {
+      window.location.href = 'dashboard.html';
+    }
+  }
+
+  btnSubmit.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    if (!email || !password) { showStatus('err', 'Renseignez votre email et votre mot de passe.'); return; }
+
+    btnSubmit.disabled = true;
+    try {
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      await redirectAfterLogin();
+    } catch (err) {
+      showStatus('err', err.message || 'Erreur de connexion.');
+    } finally {
+      btnSubmit.disabled = false;
+    }
+  });
+
+  (async () => {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) await redirectAfterLogin();
+  })();
+</script>
+</body>
+</html>
