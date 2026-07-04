@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logicop</title>
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+  <nav>
+    <span id="navAccount"></span>
+  </nav>
+</div>
+
+<main>
+  <p style="margin-bottom:8px;"><a href="../pages/dashboard.html">← Mes outils</a></p>
+  <div class="hero" style="padding-top:16px; text-align:left;">
+    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Capacité résiduelle</h1>
+    <p id="toolDesc" style="margin:8px 0 0;"></p>
+  </div>
+
+  <div class="privacy-note">
+    🔒 Votre fiche matériel est traitée directement dans votre navigateur : elle n'est jamais envoyée à Logicop.
+  </div>
+
+  <div class="step" id="notFoundStep" hidden>
+    <p class="hint">Cet outil est introuvable ou ne vous a pas été attribué. Retournez à
+       <a href="../pages/dashboard.html">vos outils</a>.</p>
+  </div>
+
+  <div id="mainSteps" hidden>
+    <div class="step">
+      <h2><span class="num">1</span> Données du chariot</h2>
+      <div class="row">
+        <div class="field grow">
+          <label for="sourceFile">Importer une fiche matériel (PDF) — ou remplir manuellement</label>
+          <input type="file" id="sourceFile" accept=".pdf">
+        </div>
+      </div>
+      <div class="status" id="extractStatus"></div>
+
+      <div class="row" id="fieldsGrid" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="step">
+      <h2><span class="num">2</span> Calcul de la capacité résiduelle</h2>
+      <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+        <div style="flex:1 1 320px; min-width:280px;">
+          <div class="row">
+            <div class="field">
+              <label for="cdgVoulu">CDG voulu (mm)</label>
+              <input type="text" id="cdgVoulu">
+            </div>
+            <div class="field">
+              <button id="btnCalculate">Calculer</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="categorie">Catégorie du chariot</label>
+              <select id="categorie">
+                <option>Chariot 1,5T à 2,9T à 500mm</option>
+                <option>Chariot 3T à 5T à 500mm</option>
+                <option>Chariot 5T et plus à 600mm</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="fourches">Type de fourches</label>
+              <select id="fourches">
+                <option>Fourches standard</option>
+                <option>Fourches longues</option>
+              </select>
+            </div>
+          </div>
+          <p class="hint" id="catAutoHint" style="margin:-6px 0 12px;"></p>
+          <div class="status" id="calcStatus"></div>
+        </div>
+
+        <div id="resultCard" class="result-card" hidden>
+          <span class="result-label">Capacité résiduelle estimée</span>
+          <span id="resultText"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Logicop</footer>
+</main>
+
+<script type="module">
+  import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs';
+  window.pdfjsLib = pdfjsLib;
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../assets/js/supabase-config.js"></script>
+<script src="../assets/js/devis-engine.js"></script>
+<script src="../assets/js/capacite-residuelle.js"></script>
+</body>
+</html>
