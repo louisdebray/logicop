@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Logicop</title>
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex; align-items:center; gap:14px;">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+    <span style="color:var(--header-text-dim); font-family:var(--font-mono); font-size:0.78rem; text-transform:uppercase; letter-spacing:.06em;">admin</span>
+  </div>
+  <nav>
+    <a href="../index.html">Accueil</a>
+    <span id="navAccount"></span>
+  </nav>
+</div>
+
+<main>
+  <div class="hero" style="padding-top:16px;">
+    <h1 style="font-size:1.8rem;">Administration</h1>
+    <p>Créez des outils, gérez vos entreprises clientes et donnez-leur accès aux outils qui les concernent.</p>
+  </div>
+
+  <!-- ── ENTREPRISES ─────────────────────────────────────────────────────── -->
+  <div class="step">
+    <h2><span class="num">1</span> Entreprises</h2>
+    <div class="row">
+      <div class="field grow">
+        <label for="newCompanyName">Nouvelle entreprise</label>
+        <input type="text" id="newCompanyName" placeholder="ex : Beauce Matériel">
+      </div>
+      <div class="field">
+        <button id="btnAddCompany">Ajouter</button>
+      </div>
+    </div>
+    <p class="hint" style="margin-bottom:8px;">Cliquez sur une entreprise pour voir ses membres et gérer ses accès aux outils.</p>
+    <table id="companiesTable">
+      <thead><tr><th>Nom</th><th style="width:80px;"></th></tr></thead>
+      <tbody id="companiesBody"></tbody>
+    </table>
+  </div>
+
+  <!-- ── DÉTAIL D'UNE ENTREPRISE ─────────────────────────────────────────── -->
+  <div class="step" id="companyDetailStep" hidden>
+    <h2><span class="num">•</span> <span id="companyDetailName"></span></h2>
+
+    <div class="section-title">Membres</div>
+    <table id="membersTable">
+      <thead><tr><th>Email</th><th style="width:100px;"></th></tr></thead>
+      <tbody id="membersBody"></tbody>
+    </table>
+    <p class="hint" id="membersEmpty" hidden>Aucun membre pour l'instant. Assignez un compte en attente ci-dessous.</p>
+
+    <div class="section-title">Comptes en attente d'affectation</div>
+    <p class="hint" style="margin-bottom:8px;">Créez le compte du client dans Supabase (Authentication → Users),
+       il apparaîtra ici pour être rattaché à cette entreprise.</p>
+    <table id="pendingTable">
+      <thead><tr><th>Email</th><th style="width:100px;"></th></tr></thead>
+      <tbody id="pendingBody"></tbody>
+    </table>
+    <p class="hint" id="pendingEmpty" hidden>Aucun compte en attente.</p>
+
+    <div class="section-title">Outils accordés</div>
+    <div class="row" id="companyToolGrants"></div>
+    <p class="hint" id="noToolsHint" hidden>Créez d'abord un outil ci-dessous.</p>
+  </div>
+
+  <!-- ── OUTILS ──────────────────────────────────────────────────────────── -->
+  <div class="step">
+    <h2><span class="num">2</span> Outils</h2>
+    <div class="row">
+      <a class="btn" href="../outils/import-devis.html" style="text-decoration:none;">+ Nouveau convertisseur de devis</a>
+      <button class="secondary" id="btnNewCapaciteResiduelle">+ Nouvel outil : Capacité résiduelle</button>
+      <button class="secondary" id="btnNewTransport">+ Nouvel outil : Prix de transport</button>
+    </div>
+    <div id="toolsList"></div>
+    <p class="hint" id="toolsEmpty" hidden>Aucun outil créé pour l'instant.</p>
+  </div>
+
+  <footer>Logicop — Administration</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../assets/js/supabase-config.js"></script>
+<script src="../assets/js/admin.js"></script>
+</body>
+</html>
