@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestion — Logicop</title>
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+  <nav>
+    <a href="dashboard.html">Mes outils</a>
+    <span id="navAccount"></span>
+  </nav>
+</div>
+
+<main>
+  <div class="hero" style="padding-top:16px;">
+    <h1 style="font-size:1.8rem;">Gestion</h1>
+    <p>Gérez les accès de votre équipe aux outils et mettez à jour les tarifs transport.</p>
+  </div>
+
+  <!-- Affectation outils → utilisateurs -->
+  <div class="step">
+    <h2><span class="num">1</span> Accès aux outils par employé</h2>
+    <p class="hint" style="margin-bottom:12px;">Cochez les outils auxquels chaque employé a accès. Si aucun employé n'est coché pour un outil, tout le monde y a accès par défaut.</p>
+    <div id="accessGrid"></div>
+    <p class="hint" id="noMembers" hidden>Aucun membre dans votre entreprise.</p>
+    <div class="row" style="margin-top:12px;">
+      <button id="btnSaveAccess">💾 Enregistrer les accès</button>
+    </div>
+    <div class="status" id="accessStatus"></div>
+  </div>
+
+  <!-- Tarifs transport -->
+  <div class="step" id="transportStep" hidden>
+    <h2><span class="num">2</span> Tarifs transport</h2>
+    <p class="hint" style="margin-bottom:12px;">Mettez à jour les prix de livraison et de déplacement technicien.</p>
+    <select id="transportToolSelect" style="margin-bottom:12px;"></select>
+    <table>
+      <thead><tr><th>Zone</th><th style="width:140px;">Transport PL (€ HT)</th><th style="width:140px;">Déplacement tech. (€ HT)</th></tr></thead>
+      <tbody id="transportZonesBody"></tbody>
+    </table>
+    <div class="row" style="margin-top:12px;">
+      <button id="btnSaveTransport">💾 Enregistrer les tarifs</button>
+    </div>
+    <div class="status" id="transportStatus"></div>
+  </div>
+
+  <footer>Logicop</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../assets/js/supabase-config.js"></script>
+<script src="../assets/js/transport-zones.js"></script>
+<script src="../assets/js/gestion.js"></script>
+</body>
+</html>
