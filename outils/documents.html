@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documents — Logicop</title>
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+<style>
+  /* ── Toolbar (recherche + vue) ─────────────────────────── */
+  .docs-toolbar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .docs-toolbar input[type="search"] {
+    flex: 1; min-width: 200px; padding: 8px 12px;
+    border: 1px solid var(--panel-border); border-radius: 6px;
+    font-size: 0.9rem; background: var(--bg-soft);
+  }
+  .view-toggle { display: flex; gap: 0; }
+  .view-toggle button {
+    padding: 7px 12px; border: 1px solid var(--panel-border);
+    background: var(--bg-soft); cursor: pointer; font-size: 1rem;
+    color: var(--text-dim); line-height: 1;
+  }
+  .view-toggle button:first-child { border-radius: 6px 0 0 6px; }
+  .view-toggle button:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+  .view-toggle button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── Dossiers ──────────────────────────────────────────── */
+  .folder-block { margin-bottom: 24px; }
+  .folder-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; background: var(--bg-soft); border-radius: 8px;
+    margin-bottom: 8px; cursor: pointer; user-select: none;
+  }
+  .folder-header h3 { margin: 0; font-size: 1rem; flex: 1; }
+  .folder-header .arrow { transition: transform .2s; }
+  .folder-header.collapsed .arrow { transform: rotate(-90deg); }
+  .folder-contents { padding-left: 8px; }
+  .folder-contents.hidden { display: none; }
+
+  /* ── Vue liste (admin toujours, user si mode liste) ──── */
+  .doc-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 8px; border-bottom: 1px solid var(--panel-border);
+  }
+  .doc-row .doc-name { flex: 2; }
+  .doc-row .doc-url { flex: 3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); text-decoration: none; }
+  .doc-row .doc-url:hover { text-decoration: underline; }
+  .add-row { display: flex; gap: 8px; align-items: flex-end; margin-top: 8px; flex-wrap: wrap; }
+  .add-row input { flex: 1; min-width: 150px; }
+
+  /* ── Vue liste utilisateur ─────────────────────────────── */
+  .doc-list-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-bottom: 1px solid var(--panel-border);
+    text-decoration: none; color: inherit; transition: background .15s;
+  }
+  .doc-list-item:hover { background: var(--bg-soft); }
+  .doc-list-item .doc-list-icon { font-size: 1.4rem; flex-shrink: 0; }
+  .doc-list-item .doc-list-name { flex: 1; font-weight: 500; }
+  .doc-list-item .doc-list-open { color: var(--accent); font-size: 0.82rem; flex-shrink: 0; }
+
+  /* ── Vue icônes (bureau) ───────────────────────────────── */
+  .docs-desktop {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 16px; padding: 8px 0;
+  }
+  .doc-icon-card {
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; text-decoration: none; color: inherit;
+    padding: 14px 8px; border-radius: 10px;
+    transition: background .15s;
+  }
+  .doc-icon-card:hover { background: var(--bg-soft); }
+  .doc-icon-card .icon-big { font-size: 2.8rem; line-height: 1; margin-bottom: 6px; }
+  .doc-icon-card .icon-label {
+    font-size: 0.78rem; line-height: 1.25;
+    word-break: break-word; max-width: 100%;
+  }
+
+  /* ── Breadcrumb navigation ──────────────────────────────── */
+  .docs-breadcrumb {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 12px; font-size: 0.88rem;
+  }
+  .docs-breadcrumb a {
+    color: var(--accent); text-decoration: none; cursor: pointer;
+  }
+  .docs-breadcrumb a:hover { text-decoration: underline; }
+  .docs-breadcrumb .sep { color: var(--text-dim); }
+  .docs-breadcrumb .current { color: var(--text); font-weight: 600; }
+
+  /* ── Folder icon card ──────────────────────────────────── */
+  .folder-icon-card {
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; color: inherit;
+    padding: 14px 8px; border-radius: 10px;
+    transition: background .15s; cursor: pointer;
+  }
+  .folder-icon-card:hover { background: var(--bg-soft); }
+  .folder-icon-card .icon-big { font-size: 2.8rem; line-height: 1; margin-bottom: 6px; }
+  .folder-icon-card .icon-label {
+    font-size: 0.78rem; line-height: 1.25;
+    word-break: break-word; max-width: 100%; font-weight: 600;
+  }
+
+  /* ── Résultats recherche ───────────────────────────────── */
+  .search-results { margin-bottom: 20px; }
+  .search-results .search-heading {
+    font-size: 0.85rem; color: var(--text-dim); margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+  <nav>
+    <span id="navAccount"></span>
+  </nav>
+</div>
+
+<main>
+  <p style="margin-bottom:8px;"><a id="backLink" href="../pages/dashboard.html">← Mes outils</a></p>
+  <div class="hero" style="padding-top:16px; text-align:left;">
+    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Documents partagés</h1>
+    <p id="toolDesc" style="margin:8px 0 0;"></p>
+  </div>
+
+  <div class="step" id="notFoundStep" hidden>
+    <p class="hint">Cet outil est introuvable ou ne vous a pas été attribué. Retournez à
+       <a href="../pages/dashboard.html">vos outils</a>.</p>
+  </div>
+
+  <div id="content" hidden>
+    <!-- Admin: créer un dossier -->
+    <div class="step" id="adminNewFolder" hidden>
+      <div class="row">
+        <div class="field grow">
+          <label for="folderName">Nouveau dossier</label>
+          <input type="text" id="folderName" placeholder="ex : Tarifs 2025">
+        </div>
+        <div class="field">
+          <button id="btnAddFolder">Créer le dossier</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barre recherche + toggle vue -->
+    <div class="docs-toolbar" id="toolbar" hidden>
+      <input type="search" id="searchInput" placeholder="Rechercher un document…">
+      <div class="view-toggle" id="viewToggle">
+        <button data-view="list" class="active" title="Vue liste">☰</button>
+        <button data-view="icons" title="Vue icônes">▦</button>
+      </div>
+    </div>
+
+    <div id="searchResults" class="search-results" hidden></div>
+    <div id="foldersContainer"></div>
+    <p class="hint" id="emptyHint" hidden style="text-align:center;">Aucun document pour l'instant.</p>
+  </div>
+
+  <footer>Logicop</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../assets/js/supabase-config.js"></script>
+<script>
+(async function init() {
+  var session = await requireSession('../pages/login.html');
+  if (!session) return;
+  var profile = await loadCurrentProfile();
+  if (!profile) { window.location.href = '../pages/login.html'; return; }
+
+  renderNavAccount('navAccount', '../');
+  var isAdmin = !!profile.is_admin;
+  if (isAdmin) document.getElementById('backLink').href = '../pages/admin.html';
+
+  var params = new URLSearchParams(window.location.search);
+  var toolId = params.get('tool');
+  if (!toolId) { document.getElementById('notFoundStep').hidden = false; return; }
+
+  var res = await supabaseClient.from('tools').select('*').eq('id', toolId).single();
+  if (!res.data) { document.getElementById('notFoundStep').hidden = false; return; }
+  var tool = res.data;
+
+  document.getElementById('toolTitle').textContent = tool.name;
+  document.getElementById('toolDesc').textContent = tool.description || '';
+  document.getElementById('content').hidden = false;
+
+  if (isAdmin) document.getElementById('adminNewFolder').hidden = false;
+
+  var container = document.getElementById('foldersContainer');
+  var emptyHint = document.getElementById('emptyHint');
+  var toolbar = document.getElementById('toolbar');
+  var searchInput = document.getElementById('searchInput');
+  var searchResults = document.getElementById('searchResults');
+
+  var currentView = localStorage.getItem('logicop_docs_view') || 'list';
+  var cachedData = { folders: [], docs: [] };
+  var openFolderId = null; // null = root, folder.id = inside that folder
+
+  // ── View toggle ──────────────────────────────────────────
+  var viewBtns = document.querySelectorAll('#viewToggle button');
+  function setView(v) {
+    currentView = v;
+    openFolderId = null;
+    localStorage.setItem('logicop_docs_view', v);
+    viewBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.view === v); });
+    renderFromCache();
+  }
+  viewBtns.forEach(function(b) {
+    b.classList.toggle('active', b.dataset.view === currentView);
+    b.addEventListener('click', function() { setView(b.dataset.view); });
+  });
+
+  // ── Search ───────────────────────────────────────────────
+  searchInput.addEventListener('input', function() {
+    var q = normalize(searchInput.value.trim());
+    if (!q) {
+      searchResults.hidden = true;
+      searchResults.innerHTML = '';
+      container.style.display = '';
+      return;
+    }
+    container.style.display = 'none';
+    searchResults.hidden = false;
+    var matches = cachedData.docs.filter(function(d) {
+      return normalize(d.name).indexOf(q) >= 0;
+    });
+    searchResults.innerHTML = '';
+    var heading = document.createElement('p');
+    heading.className = 'search-heading';
+    heading.textContent = matches.length ? matches.length + ' résultat' + (matches.length > 1 ? 's' : '') : 'Aucun résultat';
+    searchResults.appendChild(heading);
+
+    if (currentView === 'icons') {
+      var grid = document.createElement('div');
+      grid.className = 'docs-desktop';
+      matches.forEach(function(doc) { grid.appendChild(buildIconCard(doc)); });
+      searchResults.appendChild(grid);
+    } else {
+      matches.forEach(function(doc) { searchResults.appendChild(buildListItem(doc)); });
+    }
+  });
+
+  // ── Data loading ─────────────────────────────────────────
+  async function loadAll() {
+    var fRes = await supabaseClient.from('folders').select('*').eq('tool_id', toolId).order('position').order('created_at');
+    var dRes = await supabaseClient.from('documents').select('*').eq('tool_id', toolId).order('position').order('created_at');
+    cachedData = { folders: fRes.data || [], docs: dRes.data || [] };
+    return cachedData;
+  }
+
+  function renderFromCache() {
+    renderData(cachedData);
+    // re-apply search if active
+    if (searchInput.value.trim()) searchInput.dispatchEvent(new Event('input'));
+  }
+
+  async function render() {
+    await loadAll();
+    renderFromCache();
+  }
+
+  function renderData(data) {
+    var folders = data.folders;
+    var docs = data.docs;
+    container.innerHTML = '';
+
+    var looseDocs = docs.filter(function(d) { return !d.folder_id; });
+    var hasContent = folders.length > 0 || looseDocs.length > 0;
+    emptyHint.hidden = hasContent;
+    toolbar.hidden = !hasContent && !isAdmin;
+
+    if (!isAdmin) {
+      document.getElementById('viewToggle').hidden = false;
+    } else {
+      document.getElementById('viewToggle').hidden = true;
+    }
+
+    // ── Icon view for users: desktop-style navigation ──────
+    if (!isAdmin && currentView === 'icons') {
+      if (openFolderId) {
+        var folder = folders.find(function(f) { return f.id === openFolderId; });
+        if (!folder) { openFolderId = null; renderFromCache(); return; }
+        var folderDocs = docs.filter(function(d) { return d.folder_id === openFolderId; });
+        // breadcrumb
+        var bc = document.createElement('div');
+        bc.className = 'docs-breadcrumb';
+        var rootLink = document.createElement('a');
+        rootLink.textContent = '📁 Accueil';
+        rootLink.addEventListener('click', function() { openFolderId = null; renderFromCache(); });
+        var sep = document.createElement('span');
+        sep.className = 'sep';
+        sep.textContent = ' › ';
+        var cur = document.createElement('span');
+        cur.className = 'current';
+        cur.textContent = folder.name;
+        bc.append(rootLink, sep, cur);
+        container.appendChild(bc);
+        if (folderDocs.length === 0) {
+          var p = document.createElement('p');
+          p.className = 'hint';
+          p.style.textAlign = 'center';
+          p.textContent = 'Ce dossier est vide.';
+          container.appendChild(p);
+        } else {
+          var grid = document.createElement('div');
+          grid.className = 'docs-desktop';
+          folderDocs.forEach(function(doc) { grid.appendChild(buildIconCard(doc)); });
+          container.appendChild(grid);
+        }
+      } else {
+        // root: show folders + loose docs
+        var grid = document.createElement('div');
+        grid.className = 'docs-desktop';
+        folders.forEach(function(f) { grid.appendChild(buildFolderIconCard(f)); });
+        looseDocs.forEach(function(doc) { grid.appendChild(buildIconCard(doc)); });
+        container.appendChild(grid);
+      }
+      return;
+    }
+
+    // ── List view (users) or admin view ────────────────────
+    folders.forEach(function(folder) {
+      var folderDocs = docs.filter(function(d) { return d.folder_id === folder.id; });
+      container.appendChild(buildFolderBlock(folder, folderDocs));
+    });
+
+    if (looseDocs.length > 0 || (isAdmin && folders.length > 0)) {
+      var looseBlock = document.createElement('div');
+      looseBlock.className = 'folder-block';
+      if (folders.length > 0) {
+        var h = document.createElement('div');
+        h.className = 'folder-header';
+        h.innerHTML = '<span class="arrow">▼</span><h3>Sans dossier</h3>';
+        var contents_;
+        h.addEventListener('click', function() {
+          h.classList.toggle('collapsed');
+          contents_.classList.toggle('hidden');
+        });
+        looseBlock.appendChild(h);
+      }
+      contents_ = document.createElement('div');
+      contents_.className = 'folder-contents';
+      if (isAdmin) {
+        looseDocs.forEach(function(doc) { contents_.appendChild(buildDocRow(doc)); });
+        contents_.appendChild(buildAddDocRow(null));
+      } else {
+        contents_.appendChild(buildUserDocs(looseDocs));
+      }
+      looseBlock.appendChild(contents_);
+      container.appendChild(looseBlock);
+    }
+
+    if (!hasContent && isAdmin) {
+      container.appendChild(buildAddDocRow(null));
+    }
+  }
+
+  // ── Folder block ─────────────────────────────────────────
+  function buildFolderBlock(folder, folderDocs) {
+    var block = document.createElement('div');
+    block.className = 'folder-block';
+
+    var header = document.createElement('div');
+    header.className = 'folder-header';
+    header.innerHTML = '<span class="arrow">▼</span><h3>📁 ' + escHtml(folder.name) + '</h3>';
+    header.classList.add('collapsed');
+
+    if (isAdmin) {
+      var renameBtn = document.createElement('button');
+      renameBtn.className = 'secondary';
+      renameBtn.textContent = 'Renommer';
+      renameBtn.style.fontSize = '0.78rem';
+      renameBtn.addEventListener('click', async function(e) {
+        e.stopPropagation();
+        var n = prompt('Nouveau nom :', folder.name);
+        if (n === null || !n.trim()) return;
+        await supabaseClient.from('folders').update({ name: n.trim() }).eq('id', folder.id);
+        await render();
+      });
+      var delBtn = document.createElement('button');
+      delBtn.className = 'danger';
+      delBtn.textContent = '✕';
+      delBtn.style.fontSize = '0.78rem';
+      delBtn.addEventListener('click', async function(e) {
+        e.stopPropagation();
+        if (!confirm('Supprimer le dossier « ' + folder.name + ' » ? Les documents seront conservés sans dossier.')) return;
+        await supabaseClient.from('folders').delete().eq('id', folder.id);
+        await render();
+      });
+      header.append(renameBtn, delBtn);
+    }
+
+    var contents = document.createElement('div');
+    contents.className = 'folder-contents hidden';
+    header.addEventListener('click', function() {
+      header.classList.toggle('collapsed');
+      contents.classList.toggle('hidden');
+    });
+
+    if (isAdmin) {
+      folderDocs.forEach(function(doc) { contents.appendChild(buildDocRow(doc)); });
+      contents.appendChild(buildAddDocRow(folder.id));
+    } else {
+      if (folderDocs.length === 0) {
+        var p = document.createElement('p');
+        p.className = 'hint';
+        p.textContent = 'Aucun document dans ce dossier.';
+        contents.appendChild(p);
+      } else {
+        contents.appendChild(buildUserDocs(folderDocs));
+      }
+    }
+
+    block.append(header, contents);
+    return block;
+  }
+
+  // ── User docs (list or icons) ────────────────────────────
+  function buildUserDocs(docs) {
+    if (currentView === 'icons') {
+      var grid = document.createElement('div');
+      grid.className = 'docs-desktop';
+      docs.forEach(function(doc) { grid.appendChild(buildIconCard(doc)); });
+      return grid;
+    } else {
+      var frag = document.createDocumentFragment();
+      docs.forEach(function(doc) { frag.appendChild(buildListItem(doc)); });
+      return frag;
+    }
+  }
+
+  function buildFolderIconCard(folder) {
+    var div = document.createElement('div');
+    div.className = 'folder-icon-card';
+    div.innerHTML = '<span class="icon-big">📁</span>'
+      + '<span class="icon-label">' + escHtml(folder.name) + '</span>';
+    div.addEventListener('click', function() {
+      openFolderId = folder.id;
+      renderFromCache();
+    });
+    return div;
+  }
+
+  function buildListItem(doc) {
+    var a = document.createElement('a');
+    a.className = 'doc-list-item';
+    a.href = doc.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.innerHTML = '<span class="doc-list-icon">📄</span>'
+      + '<span class="doc-list-name">' + escHtml(doc.name) + '</span>'
+      + '<span class="doc-list-open">Ouvrir ↗</span>';
+    return a;
+  }
+
+  function buildIconCard(doc) {
+    var a = document.createElement('a');
+    a.className = 'doc-icon-card';
+    a.href = doc.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.innerHTML = '<span class="icon-big">📄</span>'
+      + '<span class="icon-label">' + escHtml(doc.name) + '</span>';
+    return a;
+  }
+
+  // ── Admin doc row ────────────────────────────────────────
+  function buildDocRow(doc) {
+    var row = document.createElement('div');
+    row.className = 'doc-row';
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'doc-name';
+    nameSpan.textContent = doc.name;
+    var urlA = document.createElement('a');
+    urlA.className = 'doc-url';
+    urlA.href = doc.url;
+    urlA.target = '_blank';
+    urlA.rel = 'noopener';
+    urlA.textContent = doc.url.length > 60 ? doc.url.slice(0, 60) + '…' : doc.url;
+    var delBtn = document.createElement('button');
+    delBtn.className = 'danger';
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', async function() {
+      if (!confirm('Supprimer « ' + doc.name + ' » ?')) return;
+      await supabaseClient.from('documents').delete().eq('id', doc.id);
+      await render();
+    });
+    row.append(nameSpan, urlA, delBtn);
+    return row;
+  }
+
+  function buildAddDocRow(folderId) {
+    var row = document.createElement('div');
+    row.className = 'add-row';
+    var inName = document.createElement('input');
+    inName.type = 'text';
+    inName.placeholder = 'Nom du document';
+    var inUrl = document.createElement('input');
+    inUrl.type = 'url';
+    inUrl.placeholder = 'https://drive.google.com/...';
+    var btn = document.createElement('button');
+    btn.textContent = '+ Ajouter';
+    btn.addEventListener('click', async function() {
+      var name = inName.value.trim();
+      var url = inUrl.value.trim();
+      if (!name || !url) return;
+      var ins = { tool_id: toolId, name: name, url: url };
+      if (folderId) ins.folder_id = folderId;
+      var r = await supabaseClient.from('documents').insert(ins);
+      if (r.error) { alert(r.error.message); return; }
+      await render();
+    });
+    row.append(inName, inUrl, btn);
+    return row;
+  }
+
+  function normalize(s) {
+    return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
+
+  function escHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // ── Créer un dossier ─────────────────────────────────────
+  if (isAdmin) {
+    document.getElementById('btnAddFolder').addEventListener('click', async function() {
+      var name = document.getElementById('folderName').value.trim();
+      if (!name) return;
+      await supabaseClient.from('folders').insert({ tool_id: toolId, name: name });
+      document.getElementById('folderName').value = '';
+      await render();
+    });
+  }
+
+  await render();
+  toolbar.hidden = false;
+})();
+</script>
+</body>
+</html>
