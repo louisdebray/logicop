@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Étiquettes BLG — Logicop</title>
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+<style>
+  .drop-zone {
+    border: 2px dashed var(--panel-border); border-radius: 12px;
+    padding: 40px 20px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s;
+    margin-bottom: 20px;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent); background: rgba(181,80,42,.06);
+  }
+  .drop-zone p { margin: 0; color: var(--text-dim); }
+  .drop-zone .big { font-size: 2rem; margin-bottom: 8px; }
+
+  .preview-area { text-align: center; margin: 20px 0; }
+  .preview-area canvas {
+    max-width: 100%; border: 1px solid var(--panel-border);
+    border-radius: 8px; background: #fff;
+  }
+  .preview-area .info {
+    font-size: 0.82rem; color: var(--text-dim); margin-top: 8px;
+  }
+
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 16px 0; }
+
+  .download-toast {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #2e7d32; color: #fff; padding: 10px 20px;
+    border-radius: 8px; font-weight: 600; font-size: 0.92rem;
+    opacity: 0; transform: translateY(8px);
+    animation: toastIn .35s ease forwards;
+    margin-top: 8px;
+  }
+  .download-toast.out { animation: toastOut .4s ease forwards; }
+  @keyframes toastIn { to { opacity: 1; transform: translateY(0); } }
+  @keyframes toastOut { to { opacity: 0; transform: translateY(-6px); } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+  <nav>
+    <span id="navAccount"></span>
+  </nav>
+</div>
+
+<main>
+  <p style="margin-bottom:8px;"><a id="backLink" href="../pages/dashboard.html">← Mes outils</a></p>
+  <div class="hero" style="padding-top:16px; text-align:left;">
+    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Étiquettes BLG</h1>
+    <p id="toolDesc" style="margin:8px 0 0;"></p>
+  </div>
+
+  <div class="step" id="notFoundStep" hidden>
+    <p class="hint">Cet outil est introuvable ou ne vous a pas été attribué. Retournez à
+       <a href="../pages/dashboard.html">vos outils</a>.</p>
+  </div>
+
+  <div id="content" hidden>
+    <div class="step">
+      <div class="drop-zone" id="dropZone">
+        <p class="big">📄</p>
+        <p>Glissez un PDF ici ou <strong>cliquez pour choisir un fichier</strong></p>
+        <input type="file" id="fileInput" accept=".pdf" hidden>
+      </div>
+
+      <div id="resultArea" hidden>
+        <div class="preview-area">
+          <canvas id="previewCanvas"></canvas>
+          <p class="info" id="previewInfo"></p>
+        </div>
+        <div class="row" style="justify-content:center; margin:12px 0;">
+          <div class="field">
+            <label for="parcNumber">Ref.</label>
+            <input type="text" id="parcNumber" placeholder="ex : RL000L23">
+          </div>
+        </div>
+        <div class="actions">
+          <button id="btnDownload">Télécharger en PNG</button>
+          <button class="secondary" id="btnReset">Nouveau fichier</button>
+        </div>
+        <div id="toastZone" style="text-align:center;"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Logicop</footer>
+</main>
+
+<script type="module">
+  import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs';
+  window.pdfjsLib = pdfjsLib;
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../assets/js/supabase-config.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  var DPI = 300;
+  var BORDER_PX = 3;
+  var OUTER_W = 709;
+  var OUTER_H = 531;
+  var INNER_W = OUTER_W - BORDER_PX * 2; // 703
+  var INNER_H = OUTER_H - BORDER_PX * 2; // 525
+  var pngDataUrl = null;
+  var currentFileName = '';
+
+  function waitForPdfJs() {
+    return new Promise(function(resolve) {
+      (function check() {
+        if (window.pdfjsLib) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs';
+          return resolve(window.pdfjsLib);
+        }
+        setTimeout(check, 50);
+      })();
+    });
+  }
+
+  async function initPage() {
+    var session = await requireSession('../pages/login.html');
+    if (!session) return;
+    var profile = await loadCurrentProfile();
+    if (!profile) { window.location.href = '../pages/login.html'; return; }
+
+    renderNavAccount('navAccount', '../pages/');
+    if (profile.is_admin) document.getElementById('backLink').href = '../pages/admin.html';
+
+    var params = new URLSearchParams(window.location.search);
+    var toolId = params.get('tool');
+    if (!toolId) { document.getElementById('notFoundStep').hidden = false; return; }
+
+    var res = await supabaseClient.from('tools').select('*').eq('id', toolId).single();
+    if (!res.data) { document.getElementById('notFoundStep').hidden = false; return; }
+
+    document.getElementById('toolTitle').textContent = res.data.name;
+    document.getElementById('toolDesc').textContent = res.data.description || '';
+    document.getElementById('content').hidden = false;
+
+    setupDropZone();
+  }
+
+  function setupDropZone() {
+    var dropZone = document.getElementById('dropZone');
+    var fileInput = document.getElementById('fileInput');
+
+    dropZone.addEventListener('click', function() { fileInput.click(); });
+    fileInput.addEventListener('change', function() {
+      if (fileInput.files.length) processFile(fileInput.files[0]);
+    });
+    dropZone.addEventListener('dragover', function(e) {
+      e.preventDefault(); dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', function() {
+      dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+    });
+
+    document.getElementById('btnDownload').addEventListener('click', downloadPng);
+    document.getElementById('btnReset').addEventListener('click', function() {
+      document.getElementById('resultArea').hidden = true;
+      document.getElementById('dropZone').style.display = '';
+      fileInput.value = '';
+      pngDataUrl = null;
+    });
+  }
+
+  async function processFile(file) {
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') { alert('Veuillez sélectionner un fichier PDF.'); return; }
+    currentFileName = file.name.replace(/\.pdf$/i, '');
+
+    var pdfjsLib = await waitForPdfJs();
+    var arrayBuffer = await file.arrayBuffer();
+    var pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    var page = await pdf.getPage(1);
+
+    var scale = DPI / 72;
+    var viewport = page.getViewport({ scale: scale });
+
+    var renderCanvas = document.createElement('canvas');
+    renderCanvas.width = viewport.width;
+    renderCanvas.height = viewport.height;
+    var ctx = renderCanvas.getContext('2d');
+
+    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+    var cropCanvas = document.getElementById('previewCanvas');
+    cropCanvas.width = INNER_W;
+    cropCanvas.height = INNER_H;
+    var cropCtx = cropCanvas.getContext('2d');
+    cropCtx.fillStyle = '#ffffff';
+    cropCtx.fillRect(0, 0, INNER_W, INNER_H);
+    cropCtx.drawImage(renderCanvas, BORDER_PX, BORDER_PX, INNER_W, INNER_H, 0, 0, INNER_W, INNER_H);
+
+    pngDataUrl = cropCanvas.toDataURL('image/png');
+
+    var wMm = Math.round(INNER_W / DPI * 25.4);
+    var hMm = Math.round(INNER_H / DPI * 25.4);
+    document.getElementById('previewInfo').textContent =
+      INNER_W + ' × ' + INNER_H + ' px — ' + wMm + ' × ' + hMm + ' mm à 300 DPI';
+
+    document.getElementById('dropZone').style.display = 'none';
+    document.getElementById('resultArea').hidden = false;
+  }
+
+  function showToast() {
+    var zone = document.getElementById('toastZone');
+    zone.innerHTML = '';
+    var el = document.createElement('span');
+    el.className = 'download-toast';
+    el.textContent = '✅ Image téléchargée !';
+    zone.appendChild(el);
+    setTimeout(function() { el.classList.add('out'); }, 2500);
+    setTimeout(function() { if (el.parentNode) el.remove(); }, 3000);
+  }
+
+  async function downloadPng() {
+    if (!pngDataUrl) return;
+    var parc = document.getElementById('parcNumber').value.trim();
+    var fileName = parc ? 'Étiquette ' + parc + '.png' : currentFileName + '_etiquette.png';
+
+    if (window.showSaveFilePicker) {
+      try {
+        var handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: 'Image PNG', accept: { 'image/png': ['.png'] } }]
+        });
+        var writable = await handle.createWritable();
+        var resp = await fetch(pngDataUrl);
+        await writable.write(await resp.blob());
+        await writable.close();
+        showToast();
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+    var a = document.createElement('a');
+    a.href = pngDataUrl;
+    a.download = fileName;
+    a.click();
+    showToast();
+  }
+
+  initPage();
+})();
+</script>
+</body>
+</html>
