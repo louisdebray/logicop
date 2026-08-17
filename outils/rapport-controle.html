@@ -580,16 +580,44 @@
     }
   }
 
+  function setRunBold(run, bold) {
+    var rPr = run.getElementsByTagNameNS(WNS, 'rPr');
+    if (!rPr.length) {
+      if (!bold) return;
+      var newRPr = run.ownerDocument.createElementNS(WNS, 'w:rPr');
+      var bEl = run.ownerDocument.createElementNS(WNS, 'w:b');
+      newRPr.appendChild(bEl);
+      run.insertBefore(newRPr, run.firstChild);
+      return;
+    }
+    var bNodes = rPr[0].getElementsByTagNameNS(WNS, 'b');
+    if (bold && !bNodes.length) {
+      rPr[0].appendChild(run.ownerDocument.createElementNS(WNS, 'w:b'));
+    } else if (!bold && bNodes.length) {
+      for (var i = bNodes.length - 1; i >= 0; i--) rPr[0].removeChild(bNodes[i]);
+    }
+  }
+
   function updateControlPointCell(cell, status) {
-    var nodes = getAllTextNodes(cell);
-    for (var i = 0; i < nodes.length; i++) {
-      var t = nodes[i].textContent;
+    var paras = cell.getElementsByTagNameNS(WNS, 'p');
+    if (paras.length < 2) return;
+    var runs = paras[1].getElementsByTagNameNS(WNS, 'r');
+    for (var i = 0; i < runs.length; i++) {
+      var tEls = runs[i].getElementsByTagNameNS(WNS, 't');
+      if (!tEls.length) continue;
+      var t = tEls[0].textContent;
       if (t.indexOf('Conforme') >= 0 && t.indexOf('Non') < 0) {
-        nodes[i].textContent = (status === 'Conforme' ? '☑' : '☐') + ' Conforme';
+        var isC = status === 'Conforme';
+        tEls[0].textContent = (isC ? '☑' : '☐') + ' Conforme';
+        setRunBold(runs[i], isC);
       } else if (t.indexOf('Non conforme') >= 0) {
-        nodes[i].textContent = (status === 'Non conforme' ? '☑' : '☐') + ' Non conforme';
+        var isNC = status === 'Non conforme';
+        tEls[0].textContent = (isNC ? '☑' : '☐') + ' Non conforme';
+        setRunBold(runs[i], isNC);
       } else if (t.indexOf('Non concerné') >= 0) {
-        nodes[i].textContent = (status === 'Non concerné' ? '☑' : '☐') + ' Non concerné';
+        var isNCN = status === 'Non concerné';
+        tEls[0].textContent = (isNCN ? '☑' : '☐') + ' Non concerné';
+        setRunBold(runs[i], isNCN);
       }
     }
   }
@@ -721,6 +749,7 @@
       var secPoints = data.controlPoints.filter(function(cp) { return cp.section === secName; });
       var tblRows = getTableRows(tables[tableIdx]);
 
+      var rowsToRemove = [];
       for (var ri = 0; ri < tblRows.length; ri++) {
         var cells = getRowCells(tblRows[ri]);
         if (!cells.length) continue;
@@ -738,8 +767,15 @@
         }
 
         if (matchedPoint) {
-          updateControlPointCell(cells[0], matchedPoint.status);
+          if (matchedPoint.status === 'Non concerné') {
+            rowsToRemove.push(tblRows[ri]);
+          } else {
+            updateControlPointCell(cells[0], matchedPoint.status);
+          }
         }
+      }
+      for (var rm = 0; rm < rowsToRemove.length; rm++) {
+        rowsToRemove[rm].parentNode.removeChild(rowsToRemove[rm]);
       }
     }
 
