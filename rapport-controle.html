@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rapport de contrôle — Logicop</title>
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+<style>
+  .drop-zone {
+    border: 2px dashed var(--panel-border); border-radius: 12px;
+    padding: 40px 20px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s; margin-bottom: 20px;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent); background: rgba(181,80,42,.06);
+  }
+  .drop-zone p { margin: 0; color: var(--text-dim); }
+  .drop-zone .big { font-size: 2rem; margin-bottom: 8px; }
+  .summary-card {
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    border-radius: 12px; padding: 20px; margin: 16px 0;
+  }
+  .summary-card h3 { margin: 0 0 12px; }
+  .summary-card .ri { display: flex; gap: 20px; flex-wrap: wrap; margin: 4px 0; }
+  .summary-card .lb { color: var(--text-dim); min-width: 150px; }
+  .summary-card .vl { font-weight: 600; }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 20px 0; }
+  .preview-frame {
+    border: 1px solid var(--panel-border); border-radius: 8px;
+    width: 100%; height: 80vh; background: #fff; margin: 16px 0;
+  }
+  .actions-post { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 16px 0; }
+  .download-toast {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #2e7d32; color: #fff; padding: 10px 20px;
+    border-radius: 8px; font-weight: 600; font-size: 0.92rem;
+    opacity: 0; transform: translateY(8px);
+    animation: toastIn .35s ease forwards; margin-top: 8px;
+  }
+  .download-toast.out { animation: toastOut .4s ease forwards; }
+  @keyframes toastIn { to { opacity: 1; transform: translateY(0); } }
+  @keyframes toastOut { to { opacity: 0; transform: translateY(-6px); } }
+  .loading { text-align: center; padding: 40px; color: var(--text-dim); }
+  .loading .spinner { display: inline-block; width: 24px; height: 24px;
+    border: 3px solid var(--panel-border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite; margin-right: 10px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+  <nav><span id="navAccount"></span></nav>
+</div>
+
+<main>
+  <p style="margin-bottom:8px;"><a id="backLink" href="../pages/dashboard.html">&larr; Mes outils</a></p>
+  <div class="hero" style="padding-top:16px; text-align:left;">
+    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Rapport de contrôle</h1>
+    <p id="toolDesc" style="margin:8px 0 0;"></p>
+  </div>
+
+  <div class="step" id="notFoundStep" hidden>
+    <p class="hint">Cet outil est introuvable ou ne vous a pas été attribué. Retournez à <a href="../pages/dashboard.html">vos outils</a>.</p>
+  </div>
+
+  <div id="content" hidden>
+    <div class="step">
+      <div class="drop-zone" id="dropZone">
+        <p class="big">📄</p>
+        <p>Glissez un PDF de contrôle ici ou <strong>cliquez pour choisir un fichier</strong></p>
+        <input type="file" id="fileInput" accept=".pdf" hidden>
+      </div>
+      <div id="loadingArea" hidden>
+        <div class="loading"><span class="spinner"></span> Analyse du PDF en cours...</div>
+      </div>
+      <div id="resultArea" hidden>
+        <div class="summary-card" id="summaryCard"></div>
+        <div class="actions">
+          <button id="btnGenerate">Générer le rapport</button>
+          <button class="secondary" id="btnReset">Nouveau fichier</button>
+        </div>
+        <div id="toastZone" style="text-align:center;"></div>
+      </div>
+      <div id="previewArea" hidden>
+        <h2 style="text-align:center; margin:20px 0 8px;">Aperçu du rapport</h2>
+        <div class="actions-post">
+          <button id="btnDownloadWord">Télécharger en Word</button>
+          <button id="btnDownloadPdf">Télécharger en PDF</button>
+          <button class="secondary" id="btnResetPreview">Nouveau fichier</button>
+        </div>
+        <iframe id="previewFrame" class="preview-frame" sandbox="allow-same-origin allow-modals"></iframe>
+      </div>
+    </div>
+  </div>
+  <footer>Logicop</footer>
+</main>
+
+<script type="module">
+  import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs';
+  window.pdfjsLib = pdfjsLib;
+</script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../assets/js/supabase-config.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  var REPORT_TITLES = {
+    vgp: 'VISITE GENERALE PERIODIQUE',
+    mise_en_service: 'MISE EN SERVICE INITIALE',
+    remise_en_service: 'REMISE EN SERVICE'
+  };
+
+  var SECTION_NAMES = [
+    'Documents',
+    'Structure et état général',
+    'Levage et maintien de charge',
+    'Énergie, hydraulique et mécanique',
+    'Commandes et sécurité',
+    'Poste et protection',
+    'Accessoires de levage',
+    'Essais fonctionnels'
+  ];
+
+  var SECTION_TABLE_INDEX = {
+    'Documents': 5,
+    'Structure et état général': 6,
+    'Levage et maintien de charge': 7,
+    'Énergie, hydraulique et mécanique': 8,
+    'Commandes et sécurité': 9,
+    'Poste et protection': 10,
+    'Accessoires de levage': 11,
+    'Essais fonctionnels': 12
+  };
+
+  var parsedData = null;
+
+  function waitForPdfJs() {
+    return new Promise(function(resolve) {
+      (function check() {
+        if (window.pdfjsLib) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs';
+          return resolve(window.pdfjsLib);
+        }
+        setTimeout(check, 50);
+      })();
+    });
+  }
+
+  // ============== PDF PARSING ==============
+
+  async function getPageItems(pdf, pageNum) {
+    var page = await pdf.getPage(pageNum);
+    var content = await page.getTextContent();
+    var vp = page.getViewport({ scale: 1 });
+    var items = [];
+    for (var i = 0; i < content.items.length; i++) {
+      var it = content.items[i];
+      items.push({
+        str: it.str,
+        x: Math.round(it.transform[4]),
+        y: Math.round(vp.height - it.transform[5]),
+        fs: Math.round(Math.abs(it.transform[0]))
+      });
+    }
+    return { items: items, width: vp.width, height: vp.height, page: page };
+  }
+
+  function groupLines(items) {
+    if (!items.length) return [];
+    items.sort(function(a, b) { return a.y - b.y || a.x - b.x; });
+    var lines = [];
+    var line = [items[0]];
+    for (var i = 1; i < items.length; i++) {
+      if (Math.abs(items[i].y - line[0].y) < 5) {
+        line.push(items[i]);
+      } else {
+        lines.push(line);
+        line = [items[i]];
+      }
+    }
+    lines.push(line);
+    return lines;
+  }
+
+  function lineText(line) {
+    return line.map(function(i) { return i.str; }).join(' ').trim();
+  }
+
+  function isStatusLine(lineItems) {
+    var hasConforme = false;
+    var hasNonConforme = false;
+    for (var i = 0; i < lineItems.length; i++) {
+      if (lineItems[i].str === 'Conforme') hasConforme = true;
+      if (lineItems[i].str === 'Non conforme') hasNonConforme = true;
+    }
+    return hasConforme && hasNonConforme;
+  }
+
+  var RADIO_SELECTED = String.fromCharCode(61528); // U+F048 = selected radio
+  var RADIO_UNSELECTED = '●'; // U+25CF = unselected radio
+
+  function isRadioSelected(str) {
+    return str.length === 1 && str !== RADIO_UNSELECTED && str !== ' ';
+  }
+
+  function parseStatusFromItems(lineItems) {
+    // pdf.js items: [empty, radio, " ", "Label", " ", radio, " ", "Label", ...]
+    // radio at index label-2; U+F048 = selected, ● = not selected
+    for (var i = 0; i < lineItems.length; i++) {
+      var it = lineItems[i];
+      if (it.str === 'Conforme' || it.str === 'Non conforme' || it.str === 'Non concerné') {
+        if (i >= 2 && isRadioSelected(lineItems[i - 2].str)) return it.str;
+      }
+    }
+    return 'Conforme';
+  }
+
+  function isFooter(text) {
+    return text.indexOf('BEAUCE MATÉRIEL') >= 0 ||
+           /Rapport de contrôle/.test(text) ||
+           /^\d+\/\d+$/.test(text.trim());
+  }
+
+  function extractControlPoints(columnItems) {
+    var lines = groupLines(columnItems);
+    var points = [];
+    var currentSection = '';
+    var pendingNameLine = null;
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      var text = lineText(line);
+      if (!text || isFooter(text)) continue;
+
+      var sec = null;
+      for (var s = 0; s < SECTION_NAMES.length; s++) {
+        if (text === SECTION_NAMES[s]) { sec = SECTION_NAMES[s]; break; }
+      }
+      if (sec) { currentSection = sec; pendingNameLine = null; continue; }
+
+      if (text === 'Résultat du contrôle' || text === 'Avis général' ||
+          text.indexOf('Avis favorable') >= 0 || text.indexOf('Avis défavorable') >= 0) {
+        pendingNameLine = null;
+        continue;
+      }
+
+      if (isStatusLine(line)) {
+        if (pendingNameLine && currentSection) {
+          var name = lineText(pendingNameLine);
+          var status = parseStatusFromItems(line);
+          points.push({ section: currentSection, name: name, status: status });
+        }
+        pendingNameLine = null;
+        continue;
+      }
+
+      if (/^(Informations|Type de rapport|Identification|Nom de l|Lieu de|Date de|Périodicité|Année|N° série|Horamètre|N° parc|Réf\.|CMU|Hauteur|Type de mât|Marquage|Longueur|Largeur|Épaisseur|Capacité|Équipement|☑|■|Signature)/.test(text)) {
+        continue;
+      }
+
+      pendingNameLine = line;
+    }
+    return points;
+  }
+
+  function parseHeader(items, data) {
+    var lines = groupLines(items);
+    for (var i = 0; i < lines.length; i++) {
+      var text = lineText(lines[i]);
+
+      var m = text.match(/#(CHK\d+)/);
+      if (m) data.reference = m[1];
+
+      m = text.match(/Date\s*:\s*(\d{2}\/\d{2}\/\d{4})/);
+      if (m) data.date = m[1];
+
+      m = text.match(/Par\s*:\s*(.+)/);
+      if (m) data.inspector = m[1].trim();
+
+      if (/^[A-ZÀ-Ü][A-ZÀ-Ü\s&]{2,}$/.test(text.trim()) && !data.client.name && !text.match(/BEAUCE|BROUILLON|GERBEUR|CHARIOT|TRANSPALETTE/)) {
+        data.client.name = text.trim();
+      }
+
+      m = text.match(/N° compte\s+(\S+)/);
+      if (m) data.client.account = m[1];
+
+      if (data.client.account && !data.client.address && /^\d/.test(text.trim()) && text.indexOf('N°') < 0 && text.indexOf(' - ') < 0) {
+        data.client.address = text.trim();
+        var next = i + 1 < lines.length ? lineText(lines[i + 1]) : '';
+        if (/^\d{5}/.test(next)) data.client.address += ', ' + next;
+      }
+    }
+
+    var fullText = lines.map(function(l) { return lineText(l); }).join('\n');
+
+    for (var rl = 0; rl < lines.length; rl++) {
+      for (var rj = 2; rj < lines[rl].length; rj++) {
+        var rItem = lines[rl][rj];
+        if (rItem.str === 'Visite Générale Périodique' && isRadioSelected(lines[rl][rj - 2].str)) data.reportType = 'vgp';
+        else if (rItem.str === 'Mise en service initiale' && isRadioSelected(lines[rl][rj - 2].str)) data.reportType = 'mise_en_service';
+        else if (rItem.str === 'Remise en service' && isRadioSelected(lines[rl][rj - 2].str)) data.reportType = 'remise_en_service';
+      }
+    }
+
+    for (var li = 0; li < lines.length; li++) {
+      var lt = lineText(lines[li]);
+      if (/ - .+ - N°/.test(lt)) {
+        var parts = lt.split(' - ');
+        if (parts.length >= 3) {
+          data.machine.parc = parts[0].replace(/\D/g, '');
+          var desc = parts[1].trim();
+          var words = desc.split(/\s+/);
+          if (words.length >= 3) {
+            data.machine.model = words[words.length - 1];
+            data.machine.brand = words[words.length - 2];
+            data.machine.type = words.slice(0, words.length - 2).join(' ');
+          }
+          var sm = parts[2].match(/N°\s*(\S+)/);
+          if (sm) data.machine.serial = sm[1];
+        }
+        break;
+      }
+    }
+
+    var m2;
+    m2 = fullText.match(/N° série\s*:\s*(\S+)/); if (m2) data.machine.serial = m2[1];
+    m2 = fullText.match(/Horamètre\s*:\s*(.+?)(?:\s|$)/m); if (m2) data.machine.hours = m2[1].trim();
+    m2 = fullText.match(/Année de fabrication\s+(\d+)/); if (m2) data.machine.year = m2[1];
+    m2 = fullText.match(/CMU\s+([\d,.]+ t)/); if (m2) data.machine.cmu = m2[1];
+    m2 = fullText.match(/Hauteur d'élévation\s+([\d,.]+ m)/); if (m2) data.machine.elevation = m2[1];
+
+    var matTypes = ['Simplex', 'Duplex', 'Triplex'];
+    for (var mt = 0; mt < matTypes.length; mt++) {
+      if (fullText.indexOf(matTypes[mt]) >= 0 && fullText.indexOf('●' + matTypes[mt]) < 0 && fullText.indexOf('● ' + matTypes[mt]) < 0) {
+        data.machine.mat = matTypes[mt]; break;
+      }
+    }
+
+    if (fullText.indexOf('Marquage CE') >= 0) {
+      data.machine.ce = (fullText.indexOf('Oui ●') >= 0 || (fullText.indexOf('Oui') >= 0 && fullText.indexOf('●Oui') < 0 && fullText.indexOf('● Oui') < 0)) ? 'Oui' : 'Non';
+    }
+
+    var equips = [];
+    var eqRe = /☑\s*([^☑■\n]+)/g;
+    var eqm;
+    while ((eqm = eqRe.exec(fullText)) !== null) equips.push(eqm[1].trim());
+    data.machine.equipements = equips.join(', ');
+
+    m2 = fullText.match(/Longueur de fourches\s+([\d\s]+mm)/); var fL = m2 ? m2[1].replace(/\s/g, '') : '';
+    m2 = fullText.match(/Largeur de fourches\s+([\d\s]+mm)/); var fW = m2 ? m2[1].replace(/\s/g, '') : '';
+    m2 = fullText.match(/Épaisseur de fourches\s+([\d\s]+mm)/); var fE = m2 ? m2[1].replace(/\s/g, '') : '';
+    if (fL) data.machine.fourches = fL.replace('mm', '') + ' x ' + fW.replace('mm', '') + ' x ' + fE;
+
+    m2 = fullText.match(/Capacité de fourches\s+([\d,.]+ t)/); if (m2) data.machine.capaciteFourches = m2[1];
+
+    m2 = fullText.match(/Nom de l'inspecteur\s+(\S+)/); if (m2) data.inspectorName = m2[1];
+    m2 = fullText.match(/Lieu de vérification\s+(.+)/); if (m2) data.lieu = m2[1].trim().split('\n')[0];
+    m2 = fullText.match(/Périodicité réglementaire\s+(.+)/); if (m2) data.periodicite = m2[1].trim().split('\n')[0];
+
+    if (data.machine.type) {
+      var tl = data.machine.type.toLowerCase();
+      if (tl.indexOf('électrique') >= 0 || tl.indexOf('electrique') >= 0) data.machine.energy = 'Électrique';
+      else if (tl.indexOf('diesel') >= 0) data.machine.energy = 'Diesel';
+      else if (tl.indexOf('gpl') >= 0 || tl.indexOf('gaz') >= 0) data.machine.energy = 'GPL';
+    }
+  }
+
+  function parseResult(items, data) {
+    var lines = groupLines(items.filter(function(it) { return it.x > 280; }));
+    for (var i = 0; i < lines.length; i++) {
+      var text = lineText(lines[i]);
+      if (text.indexOf('Avis favorable') >= 0 || text.indexOf('Avis défavorable') >= 0) {
+        for (var j = 0; j < lines[i].length; j++) {
+          var it = lines[i][j];
+          if ((it.str === 'Avis favorable' || it.str === 'Avis défavorable') && j >= 2) {
+            if (isRadioSelected(lines[i][j - 2].str)) {
+              data.result.avis = it.str === 'Avis favorable' ? 'favorable' : 'defavorable';
+            }
+          }
+        }
+      }
+      if (i > 0 && lineText(lines[i - 1]).indexOf('Avis') >= 0 && text && !isFooter(text) && text.indexOf('Avis') < 0) {
+        data.result.observations = text;
+      }
+    }
+  }
+
+  async function extractPhotos(pdf, data) {
+    for (var p = 2; p <= pdf.numPages; p++) {
+      var page = await pdf.getPage(p);
+      var ops = await page.getOperatorList();
+      var lib = window.pdfjsLib;
+
+      for (var i = 0; i < ops.fnArray.length; i++) {
+        if (ops.fnArray[i] === lib.OPS.paintImageXObject || ops.fnArray[i] === lib.OPS.paintJpegXObject) {
+          try {
+            var imgKey = ops.argsArray[i][0];
+            var imgObj = await new Promise(function(resolve) { page.objs.get(imgKey, resolve); });
+            if (!imgObj || imgObj.width < 50 || imgObj.height < 50) continue;
+
+            var canvas = document.createElement('canvas');
+            canvas.width = imgObj.width;
+            canvas.height = imgObj.height;
+            var ctx = canvas.getContext('2d');
+
+            if (imgObj.bitmap) {
+              ctx.drawImage(imgObj.bitmap, 0, 0);
+            } else if (imgObj.data) {
+              var len = imgObj.width * imgObj.height;
+              var rgba;
+              if (imgObj.data.length === len * 4) {
+                rgba = new Uint8ClampedArray(imgObj.data);
+              } else if (imgObj.data.length === len * 3) {
+                rgba = new Uint8ClampedArray(len * 4);
+                for (var ri = 0, si = 0; ri < len * 4; ri += 4, si += 3) {
+                  rgba[ri] = imgObj.data[si]; rgba[ri + 1] = imgObj.data[si + 1];
+                  rgba[ri + 2] = imgObj.data[si + 2]; rgba[ri + 3] = 255;
+                }
+              } else continue;
+              ctx.putImageData(new ImageData(rgba, imgObj.width, imgObj.height), 0, 0);
+            } else continue;
+
+            var blob = await new Promise(function(r) { canvas.toBlob(r, 'image/png'); });
+            var ab = await blob.arrayBuffer();
+            data.photos.push({ data: new Uint8Array(ab), width: imgObj.width, height: imgObj.height, caption: '' });
+          } catch (e) { console.warn('Photo extraction failed:', e); }
+        }
+      }
+    }
+
+    var lastControlPage = Math.min(pdf.numPages - 1, pdf.numPages);
+    var pi = await getPageItems(pdf, lastControlPage);
+    var captionItems = pi.items.filter(function(it) { return it.y > 600 && it.y < 750 && it.str.trim(); });
+    if (captionItems.length) {
+      var captionLines = groupLines(captionItems);
+      for (var cl = 0; cl < captionLines.length; cl++) {
+        var capText = lineText(captionLines[cl]);
+        if (/\d\/\d/.test(capText)) {
+          var caps = capText.split(/(?<=\d\/\d)\s+/);
+          for (var cp = 0; cp < caps.length && cp < data.photos.length; cp++) {
+            data.photos[cp].caption = caps[cp].replace(/(\d\/\d)$/, ' ($1)').trim();
+          }
+        }
+      }
+    }
+  }
+
+  async function parsePDF(arrayBuffer) {
+    var lib = await waitForPdfJs();
+    var pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+
+    var data = {
+      reference: '', date: '', inspector: '', inspectorName: '',
+      lieu: '', periodicite: '', reportType: 'vgp',
+      client: { name: '', address: '', account: '' },
+      machine: { type: '', brand: '', model: '', serial: '', parc: '',
+                 hours: '', year: '', cmu: '', mat: '', elevation: '',
+                 ce: '', equipements: '', fourches: '', capaciteFourches: '',
+                 energy: '' },
+      controlPoints: [],
+      result: { avis: 'favorable', observations: '' },
+      photos: []
+    };
+
+    console.log('Parsing PDF, ' + pdf.numPages + ' pages');
+
+    var p1 = await getPageItems(pdf, 1);
+    parseHeader(p1.items, data);
+    console.log('Header parsed:', data.reference, data.client.name, data.machine.type, data.machine.brand);
+
+    var mid = p1.width / 2;
+    var rightItems1 = p1.items.filter(function(it) { return it.x >= mid; });
+    var pts1 = extractControlPoints(rightItems1);
+    data.controlPoints = data.controlPoints.concat(pts1);
+    console.log('Page 1 control points:', pts1.length);
+
+    for (var p = 2; p <= pdf.numPages; p++) {
+      var pi = await getPageItems(pdf, p);
+      var leftItems = pi.items.filter(function(it) { return it.x < mid; });
+      var rightItems = pi.items.filter(function(it) { return it.x >= mid; });
+
+      var leftPts = extractControlPoints(leftItems);
+      var rightPts = extractControlPoints(rightItems);
+      data.controlPoints = data.controlPoints.concat(leftPts).concat(rightPts);
+      console.log('Page ' + p + ': ' + leftPts.length + ' left + ' + rightPts.length + ' right points');
+
+      if (rightItems.some(function(it) { return it.str === 'Avis favorable' || it.str === 'Avis défavorable'; })) {
+        parseResult(pi.items, data);
+      }
+    }
+
+    console.log('Total control points:', data.controlPoints.length);
+    console.log('Result:', data.result);
+
+    await extractPhotos(pdf, data);
+    console.log('Photos:', data.photos.length);
+
+    if (!data.inspectorName && data.inspector) {
+      data.inspectorName = data.inspector.replace(/^M\.\s*/, '').trim();
+    }
+
+    return data;
+  }
+
+  // ============== TEMPLATE LOADING ==============
+
+  function loadTemplate() {
+    return fetch('template-rapport.docx').then(function(resp) {
+      if (!resp.ok) throw new Error('Impossible de charger le template (HTTP ' + resp.status + ')');
+      return resp.arrayBuffer();
+    });
+  }
+
+  // ============== WORD GENERATION (template-based) ==============
+
+  var WNS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  var RNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+  function setCellText(cell, rowIdx, colIdx, text) {
+    var paras = cell.getElementsByTagNameNS(WNS, 'p');
+    if (!paras.length) return;
+    var runs = paras[0].getElementsByTagNameNS(WNS, 'r');
+    if (!runs.length) return;
+    var tEl = runs[0].getElementsByTagNameNS(WNS, 't')[0];
+    if (tEl) tEl.textContent = text;
+  }
+
+  function getTableCell(table, row, col) {
+    var rows = [];
+    var children = table.childNodes;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].localName === 'tr') rows.push(children[i]);
+    }
+    if (row >= rows.length) return null;
+    var cells = [];
+    var rc = rows[row].childNodes;
+    for (var j = 0; j < rc.length; j++) {
+      if (rc[j].localName === 'tc') cells.push(rc[j]);
+    }
+    return col < cells.length ? cells[col] : null;
+  }
+
+  function getTableRows(table) {
+    var rows = [];
+    var children = table.childNodes;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].localName === 'tr') rows.push(children[i]);
+    }
+    return rows;
+  }
+
+  function getRowCells(row) {
+    var cells = [];
+    var children = row.childNodes;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].localName === 'tc') cells.push(children[i]);
+    }
+    return cells;
+  }
+
+  function getAllTextNodes(el) {
+    var nodes = [];
+    var ts = el.getElementsByTagNameNS(WNS, 't');
+    for (var i = 0; i < ts.length; i++) nodes.push(ts[i]);
+    return nodes;
+  }
+
+  function replaceInCell(cell, oldText, newText) {
+    var nodes = getAllTextNodes(cell);
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i].textContent.indexOf(oldText) >= 0) {
+        nodes[i].textContent = nodes[i].textContent.replace(oldText, newText);
+      }
+    }
+  }
+
+  function updateControlPointCell(cell, status) {
+    var nodes = getAllTextNodes(cell);
+    for (var i = 0; i < nodes.length; i++) {
+      var t = nodes[i].textContent;
+      if (t.indexOf('Conforme') >= 0 && t.indexOf('Non') < 0) {
+        nodes[i].textContent = (status === 'Conforme' ? '☑' : '☐') + ' Conforme';
+      } else if (t.indexOf('Non conforme') >= 0) {
+        nodes[i].textContent = (status === 'Non conforme' ? '☑' : '☐') + ' Non conforme';
+      } else if (t.indexOf('Non concerné') >= 0) {
+        nodes[i].textContent = (status === 'Non concerné' ? '☑' : '☐') + ' Non concerné';
+      }
+    }
+  }
+
+  function capitalize(s) {
+    if (!s) return '';
+    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  }
+
+  function addMonths(dateStr, months) {
+    var p = dateStr.split('/');
+    if (p.length !== 3) return '';
+    var d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+    d.setMonth(d.getMonth() + months);
+    return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+  }
+
+  async function generateDocx(data) {
+    var templateBuf = await loadTemplate();
+
+    var zip = await JSZip.loadAsync(templateBuf);
+    var docXmlStr = await zip.file('word/document.xml').async('string');
+
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(docXmlStr, 'application/xml');
+
+    var tables = doc.getElementsByTagNameNS(WNS, 'tbl');
+    console.log('Template tables:', tables.length);
+
+    // Table 0: Title
+    var t0c1 = getTableCell(tables[0], 0, 1);
+    if (t0c1) {
+      var titleNodes = getAllTextNodes(t0c1);
+      var titleStr = REPORT_TITLES[data.reportType] || REPORT_TITLES.vgp;
+      var titleWords = titleStr.split(' ');
+      if (titleNodes.length >= 3) {
+        titleNodes[0].textContent = titleWords[0] + ' DE ';
+        titleNodes[1].textContent = titleWords.slice(1, -1).join(' ');
+        titleNodes[2].textContent = ' ' + titleWords[titleWords.length - 1];
+      } else if (titleNodes.length >= 1) {
+        titleNodes[0].textContent = 'RAPPORT DE ' + titleStr;
+      }
+      var inspLine = 'Établi par ' + (data.inspector || '') + ' le ' + (data.date || '');
+      for (var ti = 0; ti < titleNodes.length; ti++) {
+        if (titleNodes[ti].textContent.indexOf('Établi') >= 0) {
+          titleNodes[ti].textContent = inspLine;
+        }
+      }
+    }
+
+    // Table 1: Info
+    var periMonths = parseInt((data.periodicite || '6').match(/\d+/)?.[0] || '6');
+    var prochainControle = addMonths(data.date, periMonths);
+    var infoValues = [
+      [data.client.name, data.client.address ? data.client.name + '\n' + data.client.address : data.client.name],
+      data.lieu || '',
+      data.date || '',
+      data.reference || '',
+      data.inspectorName || '',
+      data.periodicite || '',
+      prochainControle
+    ];
+    for (var ir = 0; ir < 7; ir++) {
+      var infoCell = getTableCell(tables[1], ir, 1);
+      if (!infoCell) continue;
+      var val = ir === 0 ? infoValues[0] : infoValues[ir];
+      if (ir === 0) {
+        var clientNodes = getAllTextNodes(infoCell);
+        if (clientNodes.length >= 2) {
+          clientNodes[0].textContent = data.client.name || '';
+          clientNodes[1].textContent = data.client.address || '';
+        } else if (clientNodes.length >= 1) {
+          clientNodes[0].textContent = (data.client.name || '') + '\n' + (data.client.address || '');
+        }
+      } else {
+        var vNodes = getAllTextNodes(infoCell);
+        if (vNodes.length) vNodes[0].textContent = typeof val === 'string' ? val : '';
+      }
+    }
+
+    // Table 2: Machine info
+    var t2vals = [
+      [capitalize(data.machine.type), capitalize(data.machine.brand)],
+      [data.machine.model, data.machine.serial],
+      [data.machine.parc, data.machine.hours],
+      [data.machine.energy, data.machine.year]
+    ];
+    for (var r2 = 0; r2 < 4; r2++) {
+      var c1 = getTableCell(tables[2], r2, 1);
+      var c3 = getTableCell(tables[2], r2, 3);
+      if (c1) { var n1 = getAllTextNodes(c1); if (n1.length) n1[0].textContent = t2vals[r2][0] || ''; }
+      if (c3) { var n3 = getAllTextNodes(c3); if (n3.length) n3[0].textContent = t2vals[r2][1] || ''; }
+    }
+
+    // Table 3: Machine details
+    var t3vals = [
+      [data.machine.cmu, data.machine.mat],
+      [data.machine.elevation, data.machine.ce],
+      [data.machine.fourches, data.machine.capaciteFourches],
+      [data.machine.equipements]
+    ];
+    for (var r3 = 0; r3 < 4; r3++) {
+      var c3a = getTableCell(tables[3], r3, 1);
+      if (c3a) { var n3a = getAllTextNodes(c3a); if (n3a.length) n3a[0].textContent = t3vals[r3][0] || ''; }
+      if (r3 < 3) {
+        var c3b = getTableCell(tables[3], r3, 3);
+        if (c3b) { var n3b = getAllTextNodes(c3b); if (n3b.length) n3b[0].textContent = t3vals[r3][1] || ''; }
+      }
+    }
+
+    // Table 4: Synthesis
+    var avisCell = getTableCell(tables[4], 0, 1);
+    if (avisCell) {
+      var an = getAllTextNodes(avisCell);
+      if (an.length) an[0].textContent = data.result.avis === 'favorable' ? '☑ Avis favorable' : '☑ Avis défavorable';
+    }
+    var obsCell = getTableCell(tables[4], 1, 1);
+    if (obsCell) {
+      var on = getAllTextNodes(obsCell);
+      if (on.length) on[0].textContent = data.result.observations || 'Aucune observation';
+    }
+
+    // Tables 5-12: Control points
+    for (var si = 0; si < SECTION_NAMES.length; si++) {
+      var secName = SECTION_NAMES[si];
+      var tableIdx = SECTION_TABLE_INDEX[secName];
+      if (tableIdx >= tables.length) continue;
+
+      var secPoints = data.controlPoints.filter(function(cp) { return cp.section === secName; });
+      var tblRows = getTableRows(tables[tableIdx]);
+
+      for (var ri = 0; ri < tblRows.length; ri++) {
+        var cells = getRowCells(tblRows[ri]);
+        if (!cells.length) continue;
+        var cellText = getAllTextNodes(cells[0]).map(function(n) { return n.textContent; }).join('');
+        var pointName = cellText.replace(/[☑☐]\s*(Conforme|Non conforme|Non concerné)/g, '').replace(/\s+/g, ' ').trim();
+
+        var matchedPoint = null;
+        for (var pi = 0; pi < secPoints.length; pi++) {
+          var pName = secPoints[pi].name.replace(/\s+/g, ' ').trim();
+          if (pointName.indexOf(pName) >= 0 || pName.indexOf(pointName) >= 0 ||
+              normalize(pointName) === normalize(pName)) {
+            matchedPoint = secPoints[pi];
+            break;
+          }
+        }
+
+        if (matchedPoint) {
+          updateControlPointCell(cells[0], matchedPoint.status);
+        }
+      }
+    }
+
+    // Table 13: Photos - remove existing sample photos, add new ones
+    // For now, update captions. Photo embedding in docx XML is complex.
+    if (data.photos.length === 0) {
+      var photoRows = getTableRows(tables[13]);
+      if (photoRows.length) {
+        var photoCells = getRowCells(photoRows[0]);
+        for (var pc = 0; pc < photoCells.length; pc++) {
+          var pn = getAllTextNodes(photoCells[pc]);
+          if (pn.length) pn[0].textContent = pc === 0 ? "Pas d'observation particulière" : '';
+        }
+      }
+    } else {
+      var photoRows2 = getTableRows(tables[13]);
+      if (photoRows2.length) {
+        var photoCells2 = getRowCells(photoRows2[0]);
+        for (var pc2 = 0; pc2 < photoCells2.length && pc2 < data.photos.length; pc2++) {
+          var pn2 = getAllTextNodes(photoCells2[pc2]);
+          if (pn2.length) pn2[0].textContent = data.photos[pc2].caption || 'Photo ' + (pc2 + 1);
+        }
+      }
+    }
+
+    // Table 14: Signature
+    var sigCell = getTableCell(tables[14], 0, 1);
+    if (sigCell) {
+      var sn = getAllTextNodes(sigCell);
+      if (sn.length) sn[0].textContent = data.inspectorName || '';
+    }
+
+    // Serialize back
+    var serializer = new XMLSerializer();
+    var newXml = serializer.serializeToString(doc);
+    zip.file('word/document.xml', newXml);
+
+    return zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    });
+  }
+
+  function normalize(s) {
+    return (s || '').toLowerCase().replace(/['']/g, "'").replace(/\s+/g, ' ').replace(/[^\w\s'àâäéèêëïîôùûüÿçœæ]/gi, '').trim();
+  }
+
+  // ============== UI ==============
+
+  function showToast(msg) {
+    var zone = document.getElementById('toastZone');
+    zone.innerHTML = '';
+    var el = document.createElement('span');
+    el.className = 'download-toast';
+    el.textContent = msg;
+    zone.appendChild(el);
+    setTimeout(function() { el.classList.add('out'); }, 2500);
+    setTimeout(function() { if (el.parentNode) el.remove(); }, 3000);
+  }
+
+  function renderSummary(data) {
+    var card = document.getElementById('summaryCard');
+    var typeLabel = data.reportType === 'vgp' ? 'Visite Générale Périodique' :
+                    data.reportType === 'mise_en_service' ? 'Mise en service initiale' : 'Remise en service';
+    var ncCount = data.controlPoints.filter(function(cp) { return cp.status === 'Non conforme'; }).length;
+    var avis = data.result.avis === 'favorable' ? 'Avis favorable' : 'Avis défavorable';
+
+    card.innerHTML =
+      '<h3>Résumé du rapport</h3>' +
+      r('Référence', data.reference || '—') +
+      r('Type', typeLabel) +
+      r('Client', data.client.name || '—') +
+      r('Équipement', [capitalize(data.machine.type), capitalize(data.machine.brand), data.machine.model].filter(Boolean).join(' ') || '—') +
+      r('Date', data.date || '—') +
+      r('Points de contrôle', data.controlPoints.length + ' points extraits') +
+      r('Non conformités', '<span style="color:' + (ncCount ? '#cc0000' : '#2e7d32') + '">' + ncCount + '</span>') +
+      r('Résultat', '<span style="color:' + (data.result.avis === 'favorable' ? '#2e7d32' : '#cc0000') + '">' + avis + '</span>') +
+      r('Photos', data.photos.length + ' photo(s)');
+  }
+
+  function r(label, value) {
+    return '<div class="ri"><span class="lb">' + label + '</span><span class="vl">' + value + '</span></div>';
+  }
+
+  async function processFile(file) {
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+      alert('Veuillez sélectionner un fichier PDF.');
+      return;
+    }
+    document.getElementById('dropZone').style.display = 'none';
+    document.getElementById('loadingArea').hidden = false;
+
+    try {
+      var ab = await file.arrayBuffer();
+      parsedData = await parsePDF(ab);
+      renderSummary(parsedData);
+      document.getElementById('loadingArea').hidden = true;
+      document.getElementById('resultArea').hidden = false;
+    } catch (e) {
+      console.error(e);
+      alert("Erreur lors de l'analyse du PDF : " + e.message);
+      document.getElementById('loadingArea').hidden = true;
+      document.getElementById('dropZone').style.display = '';
+    }
+  }
+
+  var generatedDocxBlob = null;
+  var generatedFileName = '';
+
+  function buildPreviewHtml(data) {
+    var typeLabel = REPORT_TITLES[data.reportType] || REPORT_TITLES.vgp;
+    var ncCount = data.controlPoints.filter(function(cp) { return cp.status === 'Non conforme'; }).length;
+    var avis = data.result.avis === 'favorable' ? 'Avis favorable' : 'Avis défavorable';
+
+    var css = 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#222;margin:30px auto;max-width:800px;padding:0 20px;}'
+      + 'h1{text-align:center;font-size:16pt;margin:0 0 4px;}'
+      + 'h2{font-size:12pt;background:#b5502a;color:#fff;padding:6px 10px;margin:18px 0 0;border-radius:4px 4px 0 0;}'
+      + 'table{width:100%;border-collapse:collapse;margin-bottom:12px;}'
+      + 'td,th{border:1px solid #999;padding:5px 8px;font-size:10pt;vertical-align:top;}'
+      + 'th{background:#f0f0f0;text-align:left;font-weight:600;width:35%;}'
+      + '.status{font-size:9pt;color:#555;}'
+      + '.nc{color:#cc0000;font-weight:700;}'
+      + '.c{color:#2e7d32;}'
+      + '.result-box{text-align:center;font-size:14pt;font-weight:700;padding:12px;margin:12px 0;border:2px solid;border-radius:8px;}'
+      + '.result-box.fav{border-color:#2e7d32;color:#2e7d32;}'
+      + '.result-box.def{border-color:#cc0000;color:#cc0000;}'
+      + '.photos{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:12px 0;}'
+      + '.photos figure{margin:0;text-align:center;max-width:230px;}'
+      + '.photos img{max-width:100%;border:1px solid #ccc;border-radius:4px;}'
+      + '.photos figcaption{font-size:9pt;color:#555;margin-top:4px;}'
+      + '.sub{font-size:10pt;text-align:center;color:#555;margin:0 0 20px;}'
+      + '@media print{body{margin:10px;} h2{break-inside:avoid;} @page{size:A4;margin:15mm;}}';
+
+    var html = '<!doctype html><html lang="fr"><head><meta charset="UTF-8"><style>' + css + '</style></head><body>';
+    html += '<h1>RAPPORT DE ' + esc(typeLabel) + '</h1>';
+    html += '<p class="sub">Établi par ' + esc(data.inspector || '') + ' le ' + esc(data.date || '') + ' — Réf. ' + esc(data.reference || '') + '</p>';
+
+    html += '<h2>Informations générales</h2><table>';
+    html += tr('Client', data.client.name);
+    html += tr('Adresse', data.client.address);
+    html += tr('Lieu de vérification', data.lieu);
+    html += tr('Date', data.date);
+    html += tr('Référence', data.reference);
+    html += tr('Inspecteur', data.inspectorName);
+    html += tr('Périodicité', data.periodicite);
+    html += '</table>';
+
+    html += '<h2>Équipement contrôlé</h2><table>';
+    html += tr('Type', capitalize(data.machine.type));
+    html += tr('Marque', capitalize(data.machine.brand));
+    html += tr('Modèle', data.machine.model);
+    html += tr('N° série', data.machine.serial);
+    html += tr('N° parc', data.machine.parc);
+    html += tr('Horamètre', data.machine.hours);
+    html += tr('Année', data.machine.year);
+    html += tr('Énergie', data.machine.energy);
+    html += tr('CMU', data.machine.cmu);
+    html += tr('Hauteur d\'élévation', data.machine.elevation);
+    html += tr('Type de mât', data.machine.mat);
+    html += tr('Marquage CE', data.machine.ce);
+    html += tr('Équipements', data.machine.equipements);
+    html += '</table>';
+
+    var sections = {};
+    for (var i = 0; i < data.controlPoints.length; i++) {
+      var cp = data.controlPoints[i];
+      if (!sections[cp.section]) sections[cp.section] = [];
+      sections[cp.section].push(cp);
+    }
+    for (var si = 0; si < SECTION_NAMES.length; si++) {
+      var sec = SECTION_NAMES[si];
+      var pts = sections[sec];
+      if (!pts || !pts.length) continue;
+      html += '<h2>' + esc(sec) + '</h2><table>';
+      for (var j = 0; j < pts.length; j++) {
+        var st = pts[j].status;
+        var cls = st === 'Non conforme' ? 'nc' : (st === 'Conforme' ? 'c' : '');
+        html += '<tr><td>' + esc(pts[j].name) + '</td><td class="status ' + cls + '">' + esc(st) + '</td></tr>';
+      }
+      html += '</table>';
+    }
+
+    html += '<div class="result-box ' + (data.result.avis === 'favorable' ? 'fav' : 'def') + '">' + esc(avis) + '</div>';
+    if (data.result.observations) html += '<p style="text-align:center;">' + esc(data.result.observations) + '</p>';
+
+    if (data.photos.length > 0) {
+      html += '<h2>Photos</h2><div class="photos">';
+      for (var pi = 0; pi < data.photos.length; pi++) {
+        var b64 = uint8ToBase64(data.photos[pi].data);
+        html += '<figure><img src="data:image/png;base64,' + b64 + '"><figcaption>' + esc(data.photos[pi].caption || 'Photo ' + (pi + 1)) + '</figcaption></figure>';
+      }
+      html += '</div>';
+    } else {
+      html += '<h2>Observations</h2><p style="text-align:center; color:#555;">Pas d\'observation particulière</p>';
+    }
+
+    html += '</body></html>';
+    return html;
+  }
+
+  function uint8ToBase64(u8) {
+    var chunk = 8192, parts = [];
+    for (var i = 0; i < u8.length; i += chunk) {
+      parts.push(String.fromCharCode.apply(null, u8.subarray(i, i + chunk)));
+    }
+    return btoa(parts.join(''));
+  }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+  function tr(label, val) { return '<tr><th>' + esc(label) + '</th><td>' + esc(val || '—') + '</td></tr>'; }
+
+  async function handleGenerate() {
+    if (!parsedData) return;
+    var btn = document.getElementById('btnGenerate');
+    btn.disabled = true;
+    btn.textContent = 'Génération en cours...';
+
+    try {
+      generatedDocxBlob = await generateDocx(parsedData);
+      var typeLabel = parsedData.reportType === 'vgp' ? 'VGP' :
+                      parsedData.reportType === 'mise_en_service' ? 'MES' : 'RES';
+      generatedFileName = 'Rapport ' + typeLabel + ' ' + (parsedData.reference || 'controle');
+
+      var previewHtml = buildPreviewHtml(parsedData);
+      var frame = document.getElementById('previewFrame');
+      frame.srcdoc = previewHtml;
+
+      document.getElementById('resultArea').hidden = true;
+      document.getElementById('previewArea').hidden = false;
+    } catch (e) {
+      console.error(e);
+      alert('Erreur lors de la génération : ' + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = 'Générer le rapport';
+  }
+
+  function downloadBlob(blob, name) {
+    if (window.showSaveFilePicker) {
+      var ext = name.endsWith('.pdf') ? '.pdf' : '.docx';
+      var mime = ext === '.pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: ext === '.pdf' ? 'Document PDF' : 'Document Word', accept: {} }]
+      }).then(function(handle) {
+        handle.createWritable().then(function(w) { w.write(blob).then(function() { w.close(); showToast('Fichier enregistré !'); }); });
+      }).catch(function(e) {
+        if (e.name !== 'AbortError') fallbackDownload(blob, name);
+      });
+    } else {
+      fallbackDownload(blob, name);
+    }
+  }
+
+  function fallbackDownload(blob, name) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Fichier téléchargé !');
+  }
+
+  function handleDownloadWord() {
+    if (!generatedDocxBlob) return;
+    downloadBlob(generatedDocxBlob, generatedFileName + '.docx');
+  }
+
+  function handleDownloadPdf() {
+    var frame = document.getElementById('previewFrame');
+    if (!frame.contentWindow) { alert("L'aperçu n'est pas prêt."); return; }
+    frame.contentWindow.print();
+  }
+
+  async function initPage() {
+    var session = await requireSession('../pages/login.html');
+    if (!session) return;
+    var profile = await loadCurrentProfile();
+    if (!profile) { window.location.href = '../pages/login.html'; return; }
+
+    renderNavAccount('navAccount', '../pages/');
+    if (profile.is_admin) document.getElementById('backLink').href = '../pages/admin.html';
+
+    var params = new URLSearchParams(window.location.search);
+    var toolId = params.get('tool');
+    if (!toolId) { document.getElementById('notFoundStep').hidden = false; return; }
+
+    var res = await supabaseClient.from('tools').select('*').eq('id', toolId).single();
+    if (!res.data) { document.getElementById('notFoundStep').hidden = false; return; }
+
+    document.getElementById('toolTitle').textContent = res.data.name;
+    document.getElementById('toolDesc').textContent = res.data.description || '';
+    document.getElementById('content').hidden = false;
+
+    var dropZone = document.getElementById('dropZone');
+    var fileInput = document.getElementById('fileInput');
+    dropZone.addEventListener('click', function() { fileInput.click(); });
+    fileInput.addEventListener('change', function() { if (fileInput.files.length) processFile(fileInput.files[0]); });
+    dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+    });
+
+    document.getElementById('btnGenerate').addEventListener('click', handleGenerate);
+
+    function resetAll() {
+      document.getElementById('resultArea').hidden = true;
+      document.getElementById('previewArea').hidden = true;
+      document.getElementById('dropZone').style.display = '';
+      fileInput.value = '';
+      parsedData = null;
+      generatedDocxBlob = null;
+    }
+    document.getElementById('btnReset').addEventListener('click', resetAll);
+    document.getElementById('btnResetPreview').addEventListener('click', resetAll);
+    document.getElementById('btnDownloadWord').addEventListener('click', handleDownloadWord);
+    document.getElementById('btnDownloadPdf').addEventListener('click', handleDownloadPdf);
+  }
+
+  initPage();
+})();
+</script>
+</body>
+</html>
