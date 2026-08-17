@@ -85,10 +85,10 @@
         <div id="toastZone" style="text-align:center;"></div>
       </div>
       <div id="previewArea" hidden>
-        <h2 style="text-align:center; margin:20px 0 8px;">Aperçu du rapport</h2>
+        <h2 style="text-align:center; margin:20px 0 4px;">Aperçu du rapport</h2>
+        <p style="text-align:center; color:var(--text-dim); font-size:0.88rem; margin:0 0 12px;">Vérifiez que les informations extraites sont correctes. Le fichier Word reste modifiable après téléchargement.</p>
         <div class="actions-post">
           <button id="btnDownloadWord">Télécharger en Word</button>
-          <button id="btnDownloadPdf">Télécharger en PDF</button>
           <button class="secondary" id="btnResetPreview">Nouveau fichier</button>
         </div>
         <iframe id="previewFrame" class="preview-frame" sandbox="allow-same-origin allow-modals"></iframe>
@@ -1057,7 +1057,6 @@
     document.getElementById('btnReset').addEventListener('click', resetAll);
     document.getElementById('btnResetPreview').addEventListener('click', resetAll);
     document.getElementById('btnDownloadWord').addEventListener('click', handleDownloadWord);
-    document.getElementById('btnDownloadPdf').addEventListener('click', handleDownloadPdf);
   }
 
   initPage();
