@@ -728,11 +728,31 @@
       }
     }
 
-    // Table 4: Synthesis
+    // Table 4: Synthesis — bold + colored avis
     var avisCell = getTableCell(tables[4], 0, 1);
     if (avisCell) {
-      var an = getAllTextNodes(avisCell);
-      if (an.length) an[0].textContent = data.result.avis === 'favorable' ? '☑ Avis favorable' : '☑ Avis défavorable';
+      var avisParas = avisCell.getElementsByTagNameNS(WNS, 'p');
+      if (avisParas.length) {
+        var avisRuns = avisParas[0].getElementsByTagNameNS(WNS, 'r');
+        // Clear existing runs
+        while (avisRuns.length) avisParas[0].removeChild(avisRuns[0]);
+        // Create new run with bold + color
+        var avisRun = doc.createElementNS(WNS, 'w:r');
+        var avisRPr = doc.createElementNS(WNS, 'w:rPr');
+        avisRPr.appendChild(doc.createElementNS(WNS, 'w:b'));
+        avisRPr.appendChild(doc.createElementNS(WNS, 'w:caps'));
+        var avisColor = doc.createElementNS(WNS, 'w:color');
+        avisColor.setAttribute('w:val', data.result.avis === 'favorable' ? '2E7D32' : 'CC0000');
+        avisRPr.appendChild(avisColor);
+        var avisSz = doc.createElementNS(WNS, 'w:sz');
+        avisSz.setAttribute('w:val', '24');
+        avisRPr.appendChild(avisSz);
+        avisRun.appendChild(avisRPr);
+        var avisT = doc.createElementNS(WNS, 'w:t');
+        avisT.textContent = data.result.avis === 'favorable' ? 'AVIS FAVORABLE' : 'AVIS DÉFAVORABLE';
+        avisRun.appendChild(avisT);
+        avisParas[0].appendChild(avisRun);
+      }
     }
     var obsCell = getTableCell(tables[4], 1, 1);
     if (obsCell) {
@@ -1006,7 +1026,8 @@
       generatedDocxBlob = await generateDocx(parsedData);
       var typeLabel = parsedData.reportType === 'vgp' ? 'VGP' :
                       parsedData.reportType === 'mise_en_service' ? 'MES' : 'RES';
-      generatedFileName = 'Rapport ' + typeLabel + ' ' + (parsedData.reference || 'controle');
+      var dateForFile = (parsedData.date || '').replace(/\//g, '-');
+      generatedFileName = (parsedData.machine.parc || 'parc') + ' ' + typeLabel + ' ' + dateForFile;
 
       var previewHtml = buildPreviewHtml(parsedData);
       var frame = document.getElementById('previewFrame');
