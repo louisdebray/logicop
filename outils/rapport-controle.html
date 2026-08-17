@@ -928,7 +928,7 @@
     if (data.photos.length > 0) {
       html += '<h2>Photos</h2><div class="photos">';
       for (var pi = 0; pi < data.photos.length; pi++) {
-        var b64 = btoa(String.fromCharCode.apply(null, data.photos[pi].data));
+        var b64 = uint8ToBase64(data.photos[pi].data);
         html += '<figure><img src="data:image/png;base64,' + b64 + '"><figcaption>' + esc(data.photos[pi].caption || 'Photo ' + (pi + 1)) + '</figcaption></figure>';
       }
       html += '</div>';
@@ -940,6 +940,13 @@
     return html;
   }
 
+  function uint8ToBase64(u8) {
+    var chunk = 8192, parts = [];
+    for (var i = 0; i < u8.length; i += chunk) {
+      parts.push(String.fromCharCode.apply(null, u8.subarray(i, i + chunk)));
+    }
+    return btoa(parts.join(''));
+  }
   function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
   function tr(label, val) { return '<tr><th>' + esc(label) + '</th><td>' + esc(val || '—') + '</td></tr>'; }
 
