@@ -773,6 +773,16 @@
             updateControlPointCell(cells[0], matchedPoint.status);
           }
         }
+        // Prevent row from being split across pages
+        var trPr = tblRows[ri].getElementsByTagNameNS(WNS, 'trPr');
+        if (!trPr.length) {
+          var newTrPr = doc.createElementNS(WNS, 'w:trPr');
+          tblRows[ri].insertBefore(newTrPr, tblRows[ri].firstChild);
+          trPr = [newTrPr];
+        }
+        if (!trPr[0].getElementsByTagNameNS(WNS, 'cantSplit').length) {
+          trPr[0].appendChild(doc.createElementNS(WNS, 'w:cantSplit'));
+        }
       }
       for (var rm = 0; rm < rowsToRemove.length; rm++) {
         rowsToRemove[rm].parentNode.removeChild(rowsToRemove[rm]);
@@ -845,10 +855,10 @@
 
     card.innerHTML =
       '<h3>Résumé du rapport</h3>' +
-      r('Référence', data.reference || '—') +
+      r('N° d\'intervention', data.reference || '—') +
       r('Type', typeLabel) +
       r('Client', data.client.name || '—') +
-      r('Équipement', [capitalize(data.machine.type), capitalize(data.machine.brand), data.machine.model].filter(Boolean).join(' ') || '—') +
+      r('Machine', [capitalize(data.machine.type), capitalize(data.machine.brand), data.machine.model].filter(Boolean).join(' ') || '—') +
       r('Date', data.date || '—') +
       r('Points de contrôle', data.controlPoints.length + ' points extraits') +
       r('Non conformités', '<span style="color:' + (ncCount ? '#cc0000' : '#2e7d32') + '">' + ncCount + '</span>') +
