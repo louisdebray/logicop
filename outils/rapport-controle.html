@@ -298,12 +298,16 @@
     'Oui', 'Non', 'Type de rapport'];
 
   function getValueAfterLabel(lines, label) {
+    var labelCore = label.replace(/\s*:\s*$/, '');
     for (var i = 0; i < lines.length; i++) {
       var labelIdx = -1;
       var labelX = 0;
       for (var j = 0; j < lines[i].length; j++) {
-        if (lines[i][j].str === label) { labelIdx = j; labelX = lines[i][j].x; break; }
+        var s = lines[i][j].str.trim();
+        if (s === label || s === labelCore || s === labelCore + ' :' || s === labelCore + ':') { labelIdx = j; labelX = lines[i][j].x; break; }
       }
+      // Skip colon items right after label
+      if (labelIdx >= 0 && labelIdx + 1 < lines[i].length && lines[i][labelIdx + 1].str.trim() === ':') labelIdx++;
       if (labelIdx < 0) continue;
       var vals = [];
       var colBound = labelX < 298 ? 298 : 999;
@@ -430,26 +434,48 @@
     var ceVal = findSelectedRadio(lines, ['Oui', 'Non'], 'Marquage CE');
     if (ceVal) data.machine.ce = ceVal;
 
-    // Equipements — use same radio/checkbox detection as control points
+    // Equipements — detect checked checkboxes (same encoding as radio buttons)
     var equips = [];
     var inEquipSection = false;
     for (var el = 0; el < lines.length; el++) {
       var elt = lineText(lines[el]);
-      if (elt.indexOf('Équipement') >= 0 || elt.indexOf('quipement') >= 0) { inEquipSection = true; continue; }
-      if (inEquipSection && (elt.indexOf('Longueur de fourches') >= 0 || elt.indexOf('Commentaire') >= 0 || elt.indexOf('Signature') >= 0)) break;
+      if (elt.indexOf('quipement') >= 0) { inEquipSection = true; continue; }
+      if (inEquipSection && (elt.indexOf('Longueur') >= 0 || elt.indexOf('Commentaire') >= 0 || elt.indexOf('Signature') >= 0 || elt.indexOf('Nom de') >= 0)) break;
       if (!inEquipSection) continue;
       for (var ej = 0; ej < lines[el].length; ej++) {
         var eItem = lines[el][ej];
-        if (eItem.str.trim().length > 1 && eItem.str !== '●' && ej >= 2) {
-          var checkItem = lines[el][ej - 2];
-          if (checkItem && isRadioSelected(checkItem.str)) {
-            var eqName = eItem.str.trim();
-            if (eqName !== 'Autre' && eqName.length > 1) equips.push(eqName);
-          }
+        var eStr = eItem.str.trim();
+        if (eStr.length <= 1 || eStr === '●' || eStr === ':') continue;
+        // Check if this looks like an equipment label (not a radio/checkbox indicator)
+        var isChecked = false;
+        // Look backward for the checkbox indicator
+        for (var eb = 1; eb <= 2 && ej - eb >= 0; eb++) {
+          if (isRadioSelected(lines[el][ej - eb].str)) { isChecked = true; break; }
+          if (lines[el][ej - eb].str === '●') break;
+        }
+        // Also check if item is right after an unselected marker (●)
+        var isUnchecked = false;
+        for (var eb2 = 1; eb2 <= 2 && ej - eb2 >= 0; eb2++) {
+          if (lines[el][ej - eb2].str === '●') { isUnchecked = true; break; }
+        }
+        if (isChecked && eStr !== 'Autre') {
+          equips.push(eStr);
         }
       }
     }
     data.machine.equipements = equips.join(', ');
+
+    // Debug: dump equipment section items
+    var eqDebug = false;
+    for (var edl = 0; edl < lines.length; edl++) {
+      var edt = lineText(lines[edl]);
+      if (edt.indexOf('quipement') >= 0) eqDebug = true;
+      if (eqDebug && (edt.indexOf('Longueur') >= 0 || edt.indexOf('Commentaire') >= 0 || edt.indexOf('Nom de') >= 0)) break;
+      if (eqDebug) {
+        var dbgItems = lines[edl].map(function(it) { return '{str:' + JSON.stringify(it.str) + ',len:' + it.str.length + ',c0:' + (it.str.length ? it.str.charCodeAt(0) : -1) + ',x:' + Math.round(it.x) + '}'; });
+        console.log('EQUIP LINE:', dbgItems.join(' | '));
+      }
+    }
 
     // Fourches — only include dimensions that exist
     var fL = '', fW = '', fE = '';
@@ -764,30 +790,21 @@
     var tables = doc.getElementsByTagNameNS(WNS, 'tbl');
     console.log('Template tables:', tables.length);
 
-    // Table 0: Title — update ALL text nodes dynamically
+    // Table 0: Title — 4 text nodes: "RAPPORT DE ", "VISITE", " GENERALE PERIODIQUE", "Établi par..."
     var t0c1 = getTableCell(tables[0], 0, 1);
     if (t0c1) {
       var titleNodes = getAllTextNodes(t0c1);
       var titleStr = REPORT_TITLES[data.reportType] || REPORT_TITLES.vgp;
-      var inspLine = 'Établi par ' + (data.inspector || '') + ' le ' + (data.date || '');
-      for (var ti = 0; ti < titleNodes.length; ti++) {
-        var tn = titleNodes[ti].textContent;
-        if (tn.indexOf('Établi') >= 0 || tn.indexOf('tabli') >= 0) {
-          titleNodes[ti].textContent = inspLine;
-        } else if (/CHK\d+/.test(tn)) {
-          titleNodes[ti].textContent = tn.replace(/CHK\d+/, data.reference || '');
-        } else if (tn.indexOf('VISITE') >= 0 || tn.indexOf('MISE') >= 0 || tn.indexOf('REMISE') >= 0 || tn.indexOf('PÉRIODIQUE') >= 0 || tn.indexOf('SERVICE') >= 0) {
-          // Part of the report type title — will be reconstructed
-        }
-      }
-      // Reconstruct title text across first few nodes
-      var titleFull = 'Rapport de ' + titleStr;
+      var titleUpper = titleStr.toUpperCase();
       if (titleNodes.length >= 4) {
-        titleNodes[0].textContent = 'Rapport de ';
-        titleNodes[1].textContent = titleStr;
-        // Node 2+ may be reference/date — handled above
+        titleNodes[0].textContent = 'RAPPORT DE ';
+        titleNodes[1].textContent = titleUpper;
+        titleNodes[2].textContent = '';
+        titleNodes[3].textContent = 'Établi par ' + (data.inspector || '') + ' le ' + (data.date || '');
       } else if (titleNodes.length >= 1) {
-        titleNodes[0].textContent = titleFull;
+        titleNodes[0].textContent = 'RAPPORT DE ' + titleUpper;
+        if (titleNodes.length >= 2) titleNodes[1].textContent = '';
+        if (titleNodes.length >= 3) titleNodes[2].textContent = '';
       }
     }
 
@@ -1029,6 +1046,157 @@
       if (gt.indexOf('EUROFEU') >= 0) {
         allTextNodes[gti].textContent = gt.replace(/EUROFEU/g, data.client.name || '');
       }
+    }
+
+    // Update header1.xml — dynamic title + reference
+    var hdrFile = zip.file('word/header1.xml');
+    if (hdrFile) {
+      var hdrXml = await hdrFile.async('string');
+      var hdrDoc = parser.parseFromString(hdrXml, 'application/xml');
+      var hdrTexts = hdrDoc.getElementsByTagNameNS(WNS, 't');
+      var reportTitle = 'Rapport de ' + (REPORT_TITLES[data.reportType] || REPORT_TITLES.vgp);
+      for (var hi = 0; hi < hdrTexts.length; hi++) {
+        var ht = hdrTexts[hi].textContent;
+        if (/CHK\d+/.test(ht) || ht.indexOf('Visite') >= 0 || ht.indexOf('Mise en') >= 0 || ht.indexOf('Remise') >= 0) {
+          hdrTexts[hi].textContent = reportTitle + ' – ' + (data.reference || '');
+        }
+      }
+      zip.file('word/header1.xml', new XMLSerializer().serializeToString(hdrDoc));
+    }
+
+    // Update photos in table 13 — replace template images with PDF photos
+    if (data.photos.length > 0) {
+      var relsFile = zip.file('word/_rels/document.xml.rels');
+      var relsXml = await relsFile.async('string');
+      var relsDoc = parser.parseFromString(relsXml, 'application/xml');
+      var relsRoot = relsDoc.documentElement;
+
+      // Find existing blips in table 13 to get their structure as a template
+      var t13Rows = getTableRows(tables[13]);
+      var templateBlipRow = t13Rows.length ? t13Rows[0] : null;
+      var templateCells = templateBlipRow ? getRowCells(templateBlipRow) : [];
+      var templateCell = templateCells.length ? templateCells[0] : null;
+
+      // Remove all existing rows from table 13
+      for (var pri = t13Rows.length - 1; pri >= 0; pri--) {
+        t13Rows[pri].parentNode.removeChild(t13Rows[pri]);
+      }
+
+      // Add photos 3 per row
+      var photoIdx = 0;
+      while (photoIdx < data.photos.length) {
+        var newRow = doc.createElementNS(WNS, 'w:tr');
+        for (var col = 0; col < 3 && photoIdx < data.photos.length; col++, photoIdx++) {
+          var photo = data.photos[photoIdx];
+          var imgName = 'photo' + (photoIdx + 1) + '.png';
+          var imgPath = 'media/' + imgName;
+          var rId = 'rIdPhoto' + (photoIdx + 1);
+
+          // Add image to zip
+          var imgData = photo.dataUrl.split(',')[1];
+          zip.file('word/' + imgPath, imgData, {base64: true});
+
+          // Add relationship
+          var newRel = relsDoc.createElement('Relationship');
+          newRel.setAttribute('Id', rId);
+          newRel.setAttribute('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image');
+          newRel.setAttribute('Target', imgPath);
+          relsRoot.appendChild(newRel);
+
+          // Create cell with image + caption
+          var cell = doc.createElementNS(WNS, 'w:tc');
+          // Cell properties for width
+          var tcPr = doc.createElementNS(WNS, 'w:tcPr');
+          var tcW = doc.createElementNS(WNS, 'w:tcW');
+          tcW.setAttribute('w:w', '3200');
+          tcW.setAttribute('w:type', 'dxa');
+          tcPr.appendChild(tcW);
+          cell.appendChild(tcPr);
+
+          // Paragraph with image
+          var imgPara = doc.createElementNS(WNS, 'w:p');
+          var imgRun = doc.createElementNS(WNS, 'w:r');
+          var drawing = doc.createElementNS(WNS, 'w:drawing');
+
+          var DNS = 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing';
+          var ANS = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+          var PICNS = 'http://schemas.openxmlformats.org/drawingml/2006/picture';
+
+          var inline = doc.createElementNS(DNS, 'wp:inline');
+          inline.setAttribute('distT', '0');
+          inline.setAttribute('distB', '0');
+          inline.setAttribute('distL', '0');
+          inline.setAttribute('distR', '0');
+          var extent = doc.createElementNS(DNS, 'wp:extent');
+          extent.setAttribute('cx', '1800000');
+          extent.setAttribute('cy', '1350000');
+          inline.appendChild(extent);
+          var docPr = doc.createElementNS(DNS, 'wp:docPr');
+          docPr.setAttribute('id', String(100 + photoIdx));
+          docPr.setAttribute('name', 'Photo ' + (photoIdx + 1));
+          inline.appendChild(docPr);
+          var graphic = doc.createElementNS(ANS, 'a:graphic');
+          var graphicData = doc.createElementNS(ANS, 'a:graphicData');
+          graphicData.setAttribute('uri', PICNS);
+          var pic = doc.createElementNS(PICNS, 'pic:pic');
+          var nvPicPr = doc.createElementNS(PICNS, 'pic:nvPicPr');
+          var cNvPr = doc.createElementNS(PICNS, 'pic:cNvPr');
+          cNvPr.setAttribute('id', String(100 + photoIdx));
+          cNvPr.setAttribute('name', imgName);
+          nvPicPr.appendChild(cNvPr);
+          var cNvPicPr = doc.createElementNS(PICNS, 'pic:cNvPicPr');
+          nvPicPr.appendChild(cNvPicPr);
+          pic.appendChild(nvPicPr);
+          var blipFill = doc.createElementNS(PICNS, 'pic:blipFill');
+          var blip = doc.createElementNS(ANS, 'a:blip');
+          blip.setAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'r:embed', rId);
+          blipFill.appendChild(blip);
+          var stretch = doc.createElementNS(ANS, 'a:stretch');
+          var fillRect = doc.createElementNS(ANS, 'a:fillRect');
+          stretch.appendChild(fillRect);
+          blipFill.appendChild(stretch);
+          pic.appendChild(blipFill);
+          var spPr = doc.createElementNS(PICNS, 'pic:spPr');
+          var xfrm = doc.createElementNS(ANS, 'a:xfrm');
+          var off = doc.createElementNS(ANS, 'a:off');
+          off.setAttribute('x', '0'); off.setAttribute('y', '0');
+          xfrm.appendChild(off);
+          var ext = doc.createElementNS(ANS, 'a:ext');
+          ext.setAttribute('cx', '1800000'); ext.setAttribute('cy', '1350000');
+          xfrm.appendChild(ext);
+          spPr.appendChild(xfrm);
+          var prstGeom = doc.createElementNS(ANS, 'a:prstGeom');
+          prstGeom.setAttribute('prst', 'rect');
+          spPr.appendChild(prstGeom);
+          pic.appendChild(spPr);
+          graphicData.appendChild(pic);
+          graphic.appendChild(graphicData);
+          inline.appendChild(graphic);
+          drawing.appendChild(inline);
+          imgRun.appendChild(drawing);
+          imgPara.appendChild(imgRun);
+          cell.appendChild(imgPara);
+
+          // Caption paragraph
+          var capPara = doc.createElementNS(WNS, 'w:p');
+          var capRun = doc.createElementNS(WNS, 'w:r');
+          var capRPr = doc.createElementNS(WNS, 'w:rPr');
+          var capSz = doc.createElementNS(WNS, 'w:sz');
+          capSz.setAttribute('w:val', '16');
+          capRPr.appendChild(capSz);
+          capRun.appendChild(capRPr);
+          var capT = doc.createElementNS(WNS, 'w:t');
+          capT.textContent = photo.caption || 'Photo ' + (photoIdx + 1);
+          capRun.appendChild(capT);
+          capPara.appendChild(capRun);
+          cell.appendChild(capPara);
+
+          newRow.appendChild(cell);
+        }
+        tables[13].appendChild(newRow);
+      }
+
+      zip.file('word/_rels/document.xml.rels', new XMLSerializer().serializeToString(relsDoc));
     }
 
     // Serialize back
