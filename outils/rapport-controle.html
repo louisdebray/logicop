@@ -407,6 +407,8 @@
     v = getValueAfterLabel(lines, "Périodicité réglementaire"); if (v) data.periodicite = v;
     v = getValueAfterLabel(lines, "Capacité de fourches"); if (v && /[\d,.]/.test(v)) data.machine.capaciteFourches = v;
 
+    var fullText = lines.map(function(l) { return lineText(l); }).join('\n');
+
     // Mât type & Marquage CE — check radio at both index-1 and index-2
     function findSelectedRadio(lines, targetLabels, contextLabel) {
       for (var rl2 = 0; rl2 < lines.length; rl2++) {
