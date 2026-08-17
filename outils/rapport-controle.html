@@ -291,16 +291,39 @@
     return points;
   }
 
+  function getValueAfterLabel(lines, label) {
+    for (var i = 0; i < lines.length; i++) {
+      var found = false;
+      var vals = [];
+      for (var j = 0; j < lines[i].length; j++) {
+        if (lines[i][j].str === label) { found = true; continue; }
+        if (found && lines[i][j].str.trim() && lines[i][j].str !== '●' && lines[i][j].str.length > 1) {
+          vals.push(lines[i][j].str);
+        }
+      }
+      if (found && vals.length) return vals.join(' ').trim();
+    }
+    return '';
+  }
+
+  function formatDate(d) {
+    if (!d) return '';
+    var m = d.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return m[3] + '/' + m[2] + '/' + m[1];
+    return d;
+  }
+
   function parseHeader(items, data) {
     var lines = groupLines(items);
+
     for (var i = 0; i < lines.length; i++) {
       var text = lineText(lines[i]);
 
       var m = text.match(/#(CHK\d+)/);
       if (m) data.reference = m[1];
 
-      m = text.match(/Date\s*:\s*(\d{2}\/\d{2}\/\d{4})/);
-      if (m) data.date = m[1];
+      m = text.match(/Date\s*:\s*(\S+)/);
+      if (m) data.date = formatDate(m[1]);
 
       m = text.match(/Par\s*:\s*(.+)/);
       if (m) data.inspector = m[1].trim();
@@ -319,8 +342,7 @@
       }
     }
 
-    var fullText = lines.map(function(l) { return lineText(l); }).join('\n');
-
+    // Report type radios
     for (var rl = 0; rl < lines.length; rl++) {
       for (var rj = 2; rj < lines[rl].length; rj++) {
         var rItem = lines[rl][rj];
@@ -330,6 +352,7 @@
       }
     }
 
+    // Machine line: "1423 - GERBEUR ÉLECTRIQUE NISSAN PS125TV299 - N° PS83146/04"
     for (var li = 0; li < lines.length; li++) {
       var lt = lineText(lines[li]);
       if (/ - .+ - N°/.test(lt)) {
@@ -342,49 +365,75 @@
             data.machine.model = words[words.length - 1];
             data.machine.brand = words[words.length - 2];
             data.machine.type = words.slice(0, words.length - 2).join(' ');
+          } else if (words.length === 2) {
+            data.machine.brand = words[0];
+            data.machine.model = words[1];
           }
-          var sm = parts[2].match(/N°\s*(\S+)/);
-          if (sm) data.machine.serial = sm[1];
+          var sm = parts[2].match(/N°\s*(.+)/);
+          if (sm) data.machine.serial = sm[1].trim();
         }
         break;
       }
     }
 
-    var m2;
-    m2 = fullText.match(/N° série\s*:\s*(\S+)/); if (m2) data.machine.serial = m2[1];
-    m2 = fullText.match(/Horamètre\s*:\s*(.+?)(?:\s|$)/m); if (m2) data.machine.hours = m2[1].trim();
-    m2 = fullText.match(/Année de fabrication\s+(\d+)/); if (m2) data.machine.year = m2[1];
-    m2 = fullText.match(/CMU\s+([\d,.]+ t)/); if (m2) data.machine.cmu = m2[1];
-    m2 = fullText.match(/Hauteur d'élévation\s+([\d,.]+ m)/); if (m2) data.machine.elevation = m2[1];
+    // Field-by-field extraction using position-aware search
+    var v;
+    v = getValueAfterLabel(lines, "N° série :"); if (v) data.machine.serial = v;
+    v = getValueAfterLabel(lines, "Horamètre :"); if (v) data.machine.hours = v;
+    v = getValueAfterLabel(lines, "Année de fabrication"); if (v) data.machine.year = v;
+    v = getValueAfterLabel(lines, "CMU"); if (v && /[\d,.]/.test(v)) data.machine.cmu = v;
+    v = getValueAfterLabel(lines, "Hauteur d'élévation"); if (v && /[\d,.]/.test(v)) data.machine.elevation = v;
+    v = getValueAfterLabel(lines, "Nom de l'inspecteur"); if (v) data.inspectorName = v;
+    v = getValueAfterLabel(lines, "Lieu de vérification"); if (v) data.lieu = v;
+    v = getValueAfterLabel(lines, "Date de visite"); if (v) data.date = formatDate(v);
+    v = getValueAfterLabel(lines, "Périodicité réglementaire"); if (v) data.periodicite = v;
+    v = getValueAfterLabel(lines, "Capacité de fourches"); if (v && /[\d,.]/.test(v)) data.machine.capaciteFourches = v;
 
-    var matTypes = ['Simplex', 'Duplex', 'Triplex'];
-    for (var mt = 0; mt < matTypes.length; mt++) {
-      if (fullText.indexOf(matTypes[mt]) >= 0 && fullText.indexOf('●' + matTypes[mt]) < 0 && fullText.indexOf('● ' + matTypes[mt]) < 0) {
-        data.machine.mat = matTypes[mt]; break;
+    // Mât type (radio buttons)
+    for (var rl2 = 0; rl2 < lines.length; rl2++) {
+      for (var rj2 = 2; rj2 < lines[rl2].length; rj2++) {
+        var mt = lines[rl2][rj2].str;
+        if ((mt === 'Simplex' || mt === 'Duplex' || mt === 'Triplex' || mt === 'Autre') && isRadioSelected(lines[rl2][rj2 - 2].str)) {
+          data.machine.mat = mt;
+        }
       }
     }
 
-    if (fullText.indexOf('Marquage CE') >= 0) {
-      data.machine.ce = (fullText.indexOf('Oui ●') >= 0 || (fullText.indexOf('Oui') >= 0 && fullText.indexOf('●Oui') < 0 && fullText.indexOf('● Oui') < 0)) ? 'Oui' : 'Non';
+    // Marquage CE (radio buttons)
+    for (var rl3 = 0; rl3 < lines.length; rl3++) {
+      if (lines[rl3].some(function(it) { return it.str === 'Marquage CE'; })) {
+        for (var rj3 = 2; rj3 < lines[rl3].length; rj3++) {
+          if ((lines[rl3][rj3].str === 'Oui' || lines[rl3][rj3].str === 'Non') && isRadioSelected(lines[rl3][rj3 - 2].str)) {
+            data.machine.ce = lines[rl3][rj3].str;
+          }
+        }
+      }
     }
 
+    // Equipements (■ = selected, ☑ = selected)
+    var fullText = lines.map(function(l) { return lineText(l); }).join('\n');
     var equips = [];
-    var eqRe = /☑\s*([^☑■\n]+)/g;
+    var eqRe = /[■☑]\s*([^■☑\n]+)/g;
     var eqm;
-    while ((eqm = eqRe.exec(fullText)) !== null) equips.push(eqm[1].trim());
+    while ((eqm = eqRe.exec(fullText)) !== null) {
+      var eq = eqm[1].trim();
+      if (eq && eq !== 'Autre') equips.push(eq);
+    }
     data.machine.equipements = equips.join(', ');
 
-    m2 = fullText.match(/Longueur de fourches\s+([\d\s]+mm)/); var fL = m2 ? m2[1].replace(/\s/g, '') : '';
-    m2 = fullText.match(/Largeur de fourches\s+([\d\s]+mm)/); var fW = m2 ? m2[1].replace(/\s/g, '') : '';
-    m2 = fullText.match(/Épaisseur de fourches\s+([\d\s]+mm)/); var fE = m2 ? m2[1].replace(/\s/g, '') : '';
-    if (fL) data.machine.fourches = fL.replace('mm', '') + ' x ' + fW.replace('mm', '') + ' x ' + fE;
+    // Fourches — only include dimensions that exist
+    var fL = '', fW = '', fE = '';
+    var fLm = fullText.match(/Longueur de fourches\s+([\d\s]+mm)/); if (fLm) fL = fLm[1].replace(/\s/g, '');
+    var fWm = fullText.match(/Largeur de fourches\s+([\d\s]+mm)/); if (fWm) fW = fWm[1].replace(/\s/g, '');
+    var fEm = fullText.match(/Épaisseur de fourches\s+([\d\s]+mm)/); if (fEm) fE = fEm[1].replace(/\s/g, '');
+    var fParts = [fL, fW, fE].filter(function(p) { return p; });
+    if (fParts.length === 1) {
+      data.machine.fourches = fParts[0];
+    } else if (fParts.length > 1) {
+      data.machine.fourches = fParts.map(function(p) { return p.replace('mm', ''); }).join(' x ') + ' mm';
+    }
 
-    m2 = fullText.match(/Capacité de fourches\s+([\d,.]+ t)/); if (m2) data.machine.capaciteFourches = m2[1];
-
-    m2 = fullText.match(/Nom de l'inspecteur\s+(\S+)/); if (m2) data.inspectorName = m2[1];
-    m2 = fullText.match(/Lieu de vérification\s+(.+)/); if (m2) data.lieu = m2[1].trim().split('\n')[0];
-    m2 = fullText.match(/Périodicité réglementaire\s+(.+)/); if (m2) data.periodicite = m2[1].trim().split('\n')[0];
-
+    // Energy from type
     if (data.machine.type) {
       var tl = data.machine.type.toLowerCase();
       if (tl.indexOf('électrique') >= 0 || tl.indexOf('electrique') >= 0) data.machine.energy = 'Électrique';
@@ -732,7 +781,7 @@
         }
       } else {
         var vNodes = getAllTextNodes(infoCell);
-        if (vNodes.length) vNodes[0].textContent = typeof val === 'string' ? val : '';
+        if (vNodes.length) vNodes[0].textContent = (typeof val === 'string' && val) ? val : 'Non applicable';
       }
     }
 
@@ -746,8 +795,8 @@
     for (var r2 = 0; r2 < 4; r2++) {
       var c1 = getTableCell(tables[2], r2, 1);
       var c3 = getTableCell(tables[2], r2, 3);
-      if (c1) { var n1 = getAllTextNodes(c1); if (n1.length) n1[0].textContent = t2vals[r2][0] || ''; }
-      if (c3) { var n3 = getAllTextNodes(c3); if (n3.length) n3[0].textContent = t2vals[r2][1] || ''; }
+      if (c1) { var n1 = getAllTextNodes(c1); if (n1.length) n1[0].textContent = t2vals[r2][0] || 'Non applicable'; }
+      if (c3) { var n3 = getAllTextNodes(c3); if (n3.length) n3[0].textContent = t2vals[r2][1] || 'Non applicable'; }
     }
 
     // Table 3: Machine details
@@ -759,10 +808,18 @@
     ];
     for (var r3 = 0; r3 < 4; r3++) {
       var c3a = getTableCell(tables[3], r3, 1);
-      if (c3a) { var n3a = getAllTextNodes(c3a); if (n3a.length) n3a[0].textContent = t3vals[r3][0] || ''; }
+      if (c3a) { var n3a = getAllTextNodes(c3a); if (n3a.length) n3a[0].textContent = t3vals[r3][0] || 'Non applicable'; }
       if (r3 < 3) {
         var c3b = getTableCell(tables[3], r3, 3);
-        if (c3b) { var n3b = getAllTextNodes(c3b); if (n3b.length) n3b[0].textContent = t3vals[r3][1] || ''; }
+        if (c3b) { var n3b = getAllTextNodes(c3b); if (n3b.length) n3b[0].textContent = t3vals[r3][1] || 'Non applicable'; }
+      }
+    }
+
+    // Fix "Dimensions fourches" label — remove "(L x l x É)" from template
+    var t3labels = getAllTextNodes(tables[3]);
+    for (var tli = 0; tli < t3labels.length; tli++) {
+      if (t3labels[tli].textContent.indexOf('(L x l') >= 0 || t3labels[tli].textContent.indexOf('(L×l') >= 0) {
+        t3labels[tli].textContent = t3labels[tli].textContent.replace(/\s*\(L\s*[x×]\s*l\s*[x×]\s*[ÉE]\)\s*/i, '');
       }
     }
 
@@ -815,6 +872,23 @@
 
       var secPoints = data.controlPoints.filter(function(cp) { return cp.section === secName; });
       var tblRows = getTableRows(tables[tableIdx]);
+
+      // Add keepNext on section title row (row 0) so it's never alone at page bottom
+      if (tblRows.length > 0) {
+        var titleRow = tblRows[0];
+        var titleParas = titleRow.getElementsByTagNameNS(WNS, 'p');
+        for (var tp = 0; tp < titleParas.length; tp++) {
+          var pPr = titleParas[tp].getElementsByTagNameNS(WNS, 'pPr');
+          if (!pPr.length) {
+            var newPPr = doc.createElementNS(WNS, 'w:pPr');
+            titleParas[tp].insertBefore(newPPr, titleParas[tp].firstChild);
+            pPr = [newPPr];
+          }
+          if (!pPr[0].getElementsByTagNameNS(WNS, 'keepNext').length) {
+            pPr[0].appendChild(doc.createElementNS(WNS, 'w:keepNext'));
+          }
+        }
+      }
 
       var rowsToRemove = [];
       for (var ri = 0; ri < tblRows.length; ri++) {
@@ -880,11 +954,18 @@
       }
     }
 
-    // Table 14: Signature
-    var sigCell = getTableCell(tables[14], 0, 1);
-    if (sigCell) {
-      var sn = getAllTextNodes(sigCell);
-      if (sn.length) sn[0].textContent = data.inspectorName || '';
+    // Table 14: Signature — Cell 0 = inspector name, Cell 1 = leave as "Date :"
+    var sigCell0 = getTableCell(tables[14], 0, 0);
+    if (sigCell0) {
+      var sn0 = getAllTextNodes(sigCell0);
+      for (var si = 0; si < sn0.length; si++) {
+        if (sn0[si].textContent.indexOf('Johnathan') >= 0 || sn0[si].textContent.indexOf('controleur') >= 0 || sn0[si].textContent.indexOf('contrôleur') >= 0) {
+          // Find the text node with the name placeholder
+        }
+      }
+      // Set last text node (the name value) to inspector name
+      if (sn0.length >= 3) sn0[2].textContent = data.inspectorName || '';
+      else if (sn0.length >= 2) sn0[1].textContent = data.inspectorName || '';
     }
 
     // Serialize back
@@ -924,7 +1005,7 @@
 
     card.innerHTML =
       '<h3>Résumé du rapport</h3>' +
-      r('N° d\'intervention', data.reference || '—') +
+      r('N° BM', data.machine.parc || '—') +
       r('Type', typeLabel) +
       r('Client', data.client.name || '—') +
       r('Machine', [capitalize(data.machine.type), capitalize(data.machine.brand), data.machine.model].filter(Boolean).join(' ') || '—') +
