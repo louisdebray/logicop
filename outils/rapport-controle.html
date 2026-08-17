@@ -192,33 +192,47 @@
     return line.map(function(i) { return i.str; }).join(' ').trim();
   }
 
+  var ALL_POS_LABELS = ['Conforme', 'Oui', 'Présentée', 'Présenté'];
+  var ALL_NEG_LABELS = ['Non conforme', 'Non', 'Non présentée', 'Non présenté'];
+  var ALL_NA_LABELS = ['Non concerné'];
+  var ALL_STATUS_LABELS = ALL_POS_LABELS.concat(ALL_NEG_LABELS).concat(ALL_NA_LABELS);
+
   function isStatusLine(lineItems) {
-    var hasConforme = false;
-    var hasNonConforme = false;
+    var hasPos = false, hasNeg = false;
     for (var i = 0; i < lineItems.length; i++) {
-      if (lineItems[i].str === 'Conforme') hasConforme = true;
-      if (lineItems[i].str === 'Non conforme') hasNonConforme = true;
+      var s = lineItems[i].str;
+      if (ALL_POS_LABELS.indexOf(s) >= 0) hasPos = true;
+      if (ALL_NEG_LABELS.indexOf(s) >= 0) hasNeg = true;
     }
-    return hasConforme && hasNonConforme;
+    return hasPos && hasNeg;
   }
 
-  var RADIO_SELECTED = String.fromCharCode(61528); // U+F048 = selected radio
-  var RADIO_UNSELECTED = '●'; // U+25CF = unselected radio
+  var RADIO_SELECTED = String.fromCharCode(61528);
+  var RADIO_UNSELECTED = '●';
 
   function isRadioSelected(str) {
     return str.length === 1 && str !== RADIO_UNSELECTED && str !== ' ';
   }
 
   function parseStatusFromItems(lineItems) {
-    // pdf.js items: [empty, radio, " ", "Label", " ", radio, " ", "Label", ...]
-    // radio at index label-2; U+F048 = selected, ● = not selected
     for (var i = 0; i < lineItems.length; i++) {
-      var it = lineItems[i];
-      if (it.str === 'Conforme' || it.str === 'Non conforme' || it.str === 'Non concerné') {
-        if (i >= 2 && isRadioSelected(lineItems[i - 2].str)) return it.str;
+      var s = lineItems[i].str;
+      if (ALL_STATUS_LABELS.indexOf(s) >= 0 && i >= 2 && isRadioSelected(lineItems[i - 2].str)) {
+        // Normalize to Conforme/Non conforme/Non concerné
+        if (ALL_POS_LABELS.indexOf(s) >= 0) return { status: 'Conforme', labels: null };
+        if (ALL_NA_LABELS.indexOf(s) >= 0) return { status: 'Non concerné', labels: null };
+        return { status: 'Non conforme', labels: null };
       }
     }
-    return 'Conforme';
+    // Detect label types for template
+    var labels = null;
+    for (var j = 0; j < lineItems.length; j++) {
+      var ls = lineItems[j].str;
+      if (ls === 'Oui') labels = ['Oui', 'Non', 'Non concerné'];
+      else if (ls === 'Présentée') labels = ['Présentée', 'Non présentée', 'Non concerné'];
+      else if (ls === 'Présenté') labels = ['Présenté', 'Non présenté', 'Non concerné'];
+    }
+    return { status: 'Conforme', labels: labels };
   }
 
   function isFooter(text) {
@@ -253,8 +267,16 @@
       if (isStatusLine(line)) {
         if (pendingNameLine && currentSection) {
           var name = lineText(pendingNameLine);
-          var status = parseStatusFromItems(line);
-          points.push({ section: currentSection, name: name, status: status });
+          var parsed = parseStatusFromItems(line);
+          var labelsForLine = parsed.labels;
+          if (!labelsForLine) {
+            for (var li = 0; li < line.length; li++) {
+              if (line[li].str === 'Oui') { labelsForLine = ['Oui', 'Non', 'Non concerné']; break; }
+              if (line[li].str === 'Présentée') { labelsForLine = ['Présentée', 'Non présentée', 'Non concerné']; break; }
+              if (line[li].str === 'Présenté') { labelsForLine = ['Présenté', 'Non présenté', 'Non concerné']; break; }
+            }
+          }
+          points.push({ section: currentSection, name: name, status: parsed.status, labels: labelsForLine || ['Conforme', 'Non conforme', 'Non concerné'] });
         }
         pendingNameLine = null;
         continue;
@@ -580,44 +602,60 @@
     }
   }
 
-  function setRunBold(run, bold) {
+  function setRunStyle(run, selected) {
     var rPr = run.getElementsByTagNameNS(WNS, 'rPr');
     if (!rPr.length) {
-      if (!bold) return;
       var newRPr = run.ownerDocument.createElementNS(WNS, 'w:rPr');
-      var bEl = run.ownerDocument.createElementNS(WNS, 'w:b');
-      newRPr.appendChild(bEl);
       run.insertBefore(newRPr, run.firstChild);
-      return;
+      rPr = [newRPr];
     }
+    // Bold
     var bNodes = rPr[0].getElementsByTagNameNS(WNS, 'b');
-    if (bold && !bNodes.length) {
-      rPr[0].appendChild(run.ownerDocument.createElementNS(WNS, 'w:b'));
-    } else if (!bold && bNodes.length) {
+    var bCsNodes = rPr[0].getElementsByTagNameNS(WNS, 'bCs');
+    if (selected) {
+      if (!bNodes.length) rPr[0].appendChild(run.ownerDocument.createElementNS(WNS, 'w:b'));
+      if (!bCsNodes.length) rPr[0].appendChild(run.ownerDocument.createElementNS(WNS, 'w:bCs'));
+    } else {
       for (var i = bNodes.length - 1; i >= 0; i--) rPr[0].removeChild(bNodes[i]);
+      for (var j = bCsNodes.length - 1; j >= 0; j--) rPr[0].removeChild(bCsNodes[j]);
+    }
+    // Color: selected = dark (4D4340), unselected = grey (A8A19F)
+    var colorNodes = rPr[0].getElementsByTagNameNS(WNS, 'color');
+    if (colorNodes.length) {
+      colorNodes[0].setAttribute('w:val', selected ? '4D4340' : 'A8A19F');
+    } else {
+      var col = run.ownerDocument.createElementNS(WNS, 'w:color');
+      col.setAttribute('w:val', selected ? '4D4340' : 'A8A19F');
+      rPr[0].appendChild(col);
     }
   }
 
-  function updateControlPointCell(cell, status) {
+  function updateControlPointCell(cell, status, labels) {
+    var posLabel = labels[0]; // e.g. Conforme, Oui, Présentée
+    var negLabel = labels[1]; // e.g. Non conforme, Non, Non présentée
+    var naLabel = labels[2];  // Non concerné
+
     var paras = cell.getElementsByTagNameNS(WNS, 'p');
     if (paras.length < 2) return;
     var runs = paras[1].getElementsByTagNameNS(WNS, 'r');
+    var runIdx = 0;
     for (var i = 0; i < runs.length; i++) {
       var tEls = runs[i].getElementsByTagNameNS(WNS, 't');
       if (!tEls.length) continue;
       var t = tEls[0].textContent;
+      // Match the 3 status runs (skip spacer runs)
       if (t.indexOf('Conforme') >= 0 && t.indexOf('Non') < 0) {
         var isC = status === 'Conforme';
-        tEls[0].textContent = (isC ? '☑' : '☐') + ' Conforme';
-        setRunBold(runs[i], isC);
+        tEls[0].textContent = (isC ? '☑' : '☐') + ' ' + posLabel;
+        setRunStyle(runs[i], isC);
       } else if (t.indexOf('Non conforme') >= 0) {
         var isNC = status === 'Non conforme';
-        tEls[0].textContent = (isNC ? '☑' : '☐') + ' Non conforme';
-        setRunBold(runs[i], isNC);
+        tEls[0].textContent = (isNC ? '☑' : '☐') + ' ' + negLabel;
+        setRunStyle(runs[i], isNC);
       } else if (t.indexOf('Non concerné') >= 0) {
         var isNCN = status === 'Non concerné';
-        tEls[0].textContent = (isNCN ? '☑' : '☐') + ' Non concerné';
-        setRunBold(runs[i], isNCN);
+        tEls[0].textContent = (isNCN ? '☑' : '☐') + ' ' + naLabel;
+        setRunStyle(runs[i], isNCN);
       }
     }
   }
@@ -739,14 +777,23 @@
         // Create new run with bold + color
         var avisRun = doc.createElementNS(WNS, 'w:r');
         var avisRPr = doc.createElementNS(WNS, 'w:rPr');
+        var avisFont = doc.createElementNS(WNS, 'w:rFonts');
+        avisFont.setAttribute('w:ascii', 'Segoe UI');
+        avisFont.setAttribute('w:eastAsia', 'Segoe UI');
+        avisFont.setAttribute('w:hAnsi', 'Segoe UI');
+        avisFont.setAttribute('w:cs', 'Segoe UI');
+        avisRPr.appendChild(avisFont);
         avisRPr.appendChild(doc.createElementNS(WNS, 'w:b'));
-        avisRPr.appendChild(doc.createElementNS(WNS, 'w:caps'));
+        avisRPr.appendChild(doc.createElementNS(WNS, 'w:bCs'));
         var avisColor = doc.createElementNS(WNS, 'w:color');
         avisColor.setAttribute('w:val', data.result.avis === 'favorable' ? '2E7D32' : 'CC0000');
         avisRPr.appendChild(avisColor);
         var avisSz = doc.createElementNS(WNS, 'w:sz');
         avisSz.setAttribute('w:val', '24');
         avisRPr.appendChild(avisSz);
+        var avisSzCs = doc.createElementNS(WNS, 'w:szCs');
+        avisSzCs.setAttribute('w:val', '24');
+        avisRPr.appendChild(avisSzCs);
         avisRun.appendChild(avisRPr);
         var avisT = doc.createElementNS(WNS, 'w:t');
         avisT.textContent = data.result.avis === 'favorable' ? 'AVIS FAVORABLE' : 'AVIS DÉFAVORABLE';
@@ -790,8 +837,10 @@
           if (matchedPoint.status === 'Non concerné') {
             rowsToRemove.push(tblRows[ri]);
           } else {
-            updateControlPointCell(cells[0], matchedPoint.status);
+            updateControlPointCell(cells[0], matchedPoint.status, matchedPoint.labels || ['Conforme', 'Non conforme', 'Non concerné']);
           }
+        } else if (pointName) {
+          rowsToRemove.push(tblRows[ri]);
         }
         // Prevent row from being split across pages
         var trPr = tblRows[ri].getElementsByTagNameNS(WNS, 'trPr');
