@@ -291,17 +291,35 @@
     return points;
   }
 
+  var KNOWN_LABELS = ['N° série :', 'Horamètre :', 'Année de fabrication', 'CMU', 'Hauteur d\'élévation',
+    'Nom de l\'inspecteur', 'Lieu de vérification', 'Date de visite', 'Périodicité réglementaire',
+    'Capacité de fourches', 'Longueur de fourches', 'Largeur de fourches', 'Épaisseur de fourches',
+    'Type de mât', 'Marquage CE', 'N° parc', 'Réf.', 'Simplex', 'Duplex', 'Triplex', 'Autre',
+    'Oui', 'Non', 'Type de rapport'];
+
   function getValueAfterLabel(lines, label) {
     for (var i = 0; i < lines.length; i++) {
-      var found = false;
-      var vals = [];
+      var labelIdx = -1;
+      var labelX = 0;
       for (var j = 0; j < lines[i].length; j++) {
-        if (lines[i][j].str === label) { found = true; continue; }
-        if (found && lines[i][j].str.trim() && lines[i][j].str !== '●' && lines[i][j].str.length > 1) {
-          vals.push(lines[i][j].str);
-        }
+        if (lines[i][j].str === label) { labelIdx = j; labelX = lines[i][j].x; break; }
       }
-      if (found && vals.length) return vals.join(' ').trim();
+      if (labelIdx < 0) continue;
+      var vals = [];
+      var colBound = labelX < 298 ? 298 : 999;
+      for (var k = labelIdx + 1; k < lines[i].length; k++) {
+        var it = lines[i][k];
+        if (it.x >= colBound) break;
+        if (it.str.trim() === '' || it.str === ' ' || it.str === '●') continue;
+        if (it.str.length === 1 && it.str.charCodeAt(0) > 60000) continue;
+        var isLabel = false;
+        for (var kl = 0; kl < KNOWN_LABELS.length; kl++) {
+          if (it.str === KNOWN_LABELS[kl]) { isLabel = true; break; }
+        }
+        if (isLabel) break;
+        vals.push(it.str);
+      }
+      if (vals.length) return vals.join(' ').trim();
     }
     return '';
   }
@@ -389,35 +407,45 @@
     v = getValueAfterLabel(lines, "Périodicité réglementaire"); if (v) data.periodicite = v;
     v = getValueAfterLabel(lines, "Capacité de fourches"); if (v && /[\d,.]/.test(v)) data.machine.capaciteFourches = v;
 
-    // Mât type (radio buttons)
-    for (var rl2 = 0; rl2 < lines.length; rl2++) {
-      for (var rj2 = 2; rj2 < lines[rl2].length; rj2++) {
-        var mt = lines[rl2][rj2].str;
-        if ((mt === 'Simplex' || mt === 'Duplex' || mt === 'Triplex' || mt === 'Autre') && isRadioSelected(lines[rl2][rj2 - 2].str)) {
-          data.machine.mat = mt;
+    // Mât type & Marquage CE — check radio at both index-1 and index-2
+    function findSelectedRadio(lines, targetLabels, contextLabel) {
+      for (var rl2 = 0; rl2 < lines.length; rl2++) {
+        if (contextLabel && !lines[rl2].some(function(it) { return it.str.indexOf(contextLabel) >= 0; })) continue;
+        for (var rj2 = 1; rj2 < lines[rl2].length; rj2++) {
+          var mt = lines[rl2][rj2].str.trim();
+          if (targetLabels.indexOf(mt) < 0) continue;
+          // Check index-2 first (space separator), then index-1
+          if (rj2 >= 2 && isRadioSelected(lines[rl2][rj2 - 2].str)) return mt;
+          if (rj2 >= 1 && isRadioSelected(lines[rl2][rj2 - 1].str)) return mt;
         }
       }
+      return '';
     }
+    var matVal = findSelectedRadio(lines, ['Simplex', 'Duplex', 'Triplex', 'Autre'], 'mât');
+    if (!matVal) matVal = findSelectedRadio(lines, ['Simplex', 'Duplex', 'Triplex', 'Autre'], null);
+    if (matVal) data.machine.mat = matVal;
 
-    // Marquage CE (radio buttons)
-    for (var rl3 = 0; rl3 < lines.length; rl3++) {
-      if (lines[rl3].some(function(it) { return it.str === 'Marquage CE'; })) {
-        for (var rj3 = 2; rj3 < lines[rl3].length; rj3++) {
-          if ((lines[rl3][rj3].str === 'Oui' || lines[rl3][rj3].str === 'Non') && isRadioSelected(lines[rl3][rj3 - 2].str)) {
-            data.machine.ce = lines[rl3][rj3].str;
+    var ceVal = findSelectedRadio(lines, ['Oui', 'Non'], 'Marquage CE');
+    if (ceVal) data.machine.ce = ceVal;
+
+    // Equipements — use same radio/checkbox detection as control points
+    var equips = [];
+    var inEquipSection = false;
+    for (var el = 0; el < lines.length; el++) {
+      var elt = lineText(lines[el]);
+      if (elt.indexOf('Équipement') >= 0 || elt.indexOf('quipement') >= 0) { inEquipSection = true; continue; }
+      if (inEquipSection && (elt.indexOf('Longueur de fourches') >= 0 || elt.indexOf('Commentaire') >= 0 || elt.indexOf('Signature') >= 0)) break;
+      if (!inEquipSection) continue;
+      for (var ej = 0; ej < lines[el].length; ej++) {
+        var eItem = lines[el][ej];
+        if (eItem.str.trim().length > 1 && eItem.str !== '●' && ej >= 2) {
+          var checkItem = lines[el][ej - 2];
+          if (checkItem && isRadioSelected(checkItem.str)) {
+            var eqName = eItem.str.trim();
+            if (eqName !== 'Autre' && eqName.length > 1) equips.push(eqName);
           }
         }
       }
-    }
-
-    // Equipements (■ = selected, ☑ = selected)
-    var fullText = lines.map(function(l) { return lineText(l); }).join('\n');
-    var equips = [];
-    var eqRe = /[■☑]\s*([^■☑\n]+)/g;
-    var eqm;
-    while ((eqm = eqRe.exec(fullText)) !== null) {
-      var eq = eqm[1].trim();
-      if (eq && eq !== 'Autre') equips.push(eq);
     }
     data.machine.equipements = equips.join(', ');
 
@@ -543,7 +571,7 @@
 
     var p1 = await getPageItems(pdf, 1);
     parseHeader(p1.items, data);
-    console.log('Header parsed:', data.reference, data.client.name, data.machine.type, data.machine.brand);
+    console.log('Header parsed:', JSON.stringify({ref: data.reference, client: data.client.name, inspector: data.inspector, inspectorName: data.inspectorName, date: data.date, lieu: data.lieu, type: data.machine.type, brand: data.machine.brand, model: data.machine.model, parc: data.machine.parc, serial: data.machine.serial, hours: data.machine.hours, year: data.machine.year, cmu: data.machine.cmu, elevation: data.machine.elevation, mat: data.machine.mat, ce: data.machine.ce, energy: data.machine.energy, fourches: data.machine.fourches, capFourches: data.machine.capaciteFourches, equips: data.machine.equipements}, null, 2));
 
     var mid = p1.width / 2;
     var rightItems1 = p1.items.filter(function(it) { return it.x >= mid; });
@@ -734,24 +762,30 @@
     var tables = doc.getElementsByTagNameNS(WNS, 'tbl');
     console.log('Template tables:', tables.length);
 
-    // Table 0: Title
+    // Table 0: Title — update ALL text nodes dynamically
     var t0c1 = getTableCell(tables[0], 0, 1);
     if (t0c1) {
       var titleNodes = getAllTextNodes(t0c1);
       var titleStr = REPORT_TITLES[data.reportType] || REPORT_TITLES.vgp;
-      var titleWords = titleStr.split(' ');
-      if (titleNodes.length >= 3) {
-        titleNodes[0].textContent = titleWords[0] + ' DE ';
-        titleNodes[1].textContent = titleWords.slice(1, -1).join(' ');
-        titleNodes[2].textContent = ' ' + titleWords[titleWords.length - 1];
-      } else if (titleNodes.length >= 1) {
-        titleNodes[0].textContent = 'RAPPORT DE ' + titleStr;
-      }
       var inspLine = 'Établi par ' + (data.inspector || '') + ' le ' + (data.date || '');
       for (var ti = 0; ti < titleNodes.length; ti++) {
-        if (titleNodes[ti].textContent.indexOf('Établi') >= 0) {
+        var tn = titleNodes[ti].textContent;
+        if (tn.indexOf('Établi') >= 0 || tn.indexOf('tabli') >= 0) {
           titleNodes[ti].textContent = inspLine;
+        } else if (/CHK\d+/.test(tn)) {
+          titleNodes[ti].textContent = tn.replace(/CHK\d+/, data.reference || '');
+        } else if (tn.indexOf('VISITE') >= 0 || tn.indexOf('MISE') >= 0 || tn.indexOf('REMISE') >= 0 || tn.indexOf('PÉRIODIQUE') >= 0 || tn.indexOf('SERVICE') >= 0) {
+          // Part of the report type title — will be reconstructed
         }
+      }
+      // Reconstruct title text across first few nodes
+      var titleFull = 'Rapport de ' + titleStr;
+      if (titleNodes.length >= 4) {
+        titleNodes[0].textContent = 'Rapport de ';
+        titleNodes[1].textContent = titleStr;
+        // Node 2+ may be reference/date — handled above
+      } else if (titleNodes.length >= 1) {
+        titleNodes[0].textContent = titleFull;
       }
     }
 
@@ -954,18 +988,45 @@
       }
     }
 
-    // Table 14: Signature — Cell 0 = inspector name, Cell 1 = leave as "Date :"
+    // Table 14: Signature — replace template name with dynamic inspector name
     var sigCell0 = getTableCell(tables[14], 0, 0);
     if (sigCell0) {
       var sn0 = getAllTextNodes(sigCell0);
+      var nameSet = false;
       for (var si = 0; si < sn0.length; si++) {
-        if (sn0[si].textContent.indexOf('Johnathan') >= 0 || sn0[si].textContent.indexOf('controleur') >= 0 || sn0[si].textContent.indexOf('contrôleur') >= 0) {
-          // Find the text node with the name placeholder
+        var stxt = sn0[si].textContent.trim();
+        if (stxt && stxt.indexOf('Nom') < 0 && stxt.indexOf('contrôleur') < 0 && stxt.indexOf('controleur') < 0 && stxt !== ':' && stxt !== ' : ') {
+          sn0[si].textContent = data.inspectorName || '';
+          nameSet = true;
         }
       }
-      // Set last text node (the name value) to inspector name
-      if (sn0.length >= 3) sn0[2].textContent = data.inspectorName || '';
-      else if (sn0.length >= 2) sn0[1].textContent = data.inspectorName || '';
+      if (!nameSet && sn0.length) sn0[sn0.length - 1].textContent = data.inspectorName || '';
+    }
+    // Cell 1 = "Date :" — ensure no dynamic data leaks in
+    var sigCell1 = getTableCell(tables[14], 0, 1);
+    if (sigCell1) {
+      var sn1 = getAllTextNodes(sigCell1);
+      for (var si2 = 0; si2 < sn1.length; si2++) {
+        var stxt2 = sn1[si2].textContent.trim();
+        if (stxt2 && stxt2.indexOf('Date') < 0 && stxt2 !== ':' && stxt2 !== ' : ') {
+          sn1[si2].textContent = '';
+        }
+      }
+    }
+
+    // Global sweep: replace any remaining template placeholder text
+    var allTextNodes = doc.getElementsByTagNameNS(WNS, 't');
+    for (var gti = 0; gti < allTextNodes.length; gti++) {
+      var gt = allTextNodes[gti].textContent;
+      if (/CHK\d+/.test(gt)) {
+        allTextNodes[gti].textContent = gt.replace(/CHK\d+/, data.reference || '');
+      }
+      if (gt.indexOf('Johnathan') >= 0) {
+        allTextNodes[gti].textContent = gt.replace(/Johnathan/g, data.inspectorName || '');
+      }
+      if (gt.indexOf('EUROFEU') >= 0) {
+        allTextNodes[gti].textContent = gt.replace(/EUROFEU/g, data.client.name || '');
+      }
     }
 
     // Serialize back
