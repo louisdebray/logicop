@@ -1010,7 +1010,7 @@
     arreteRun.appendChild(arreteRPr);
     var arreteT = doc.createElementNS(WNS, 'w:t');
     arreteT.setAttribute('xml:space', 'preserve');
-    arreteT.textContent = 'Vérification effectuée conformément à l\'arrêté du 1er mars 2004 relatif aux vérifications des appareils et accessoires de levage.';
+    arreteT.textContent = 'Réalisé conformément à l\'arrêté du 1er mars 2004.';
     arreteRun.appendChild(arreteT);
     arretePara.appendChild(arreteRun);
     tables[0].parentNode.insertBefore(arretePara, tables[0].nextSibling);
@@ -1523,7 +1523,7 @@
     html += '<h1>RAPPORT DE ' + esc(typeLabel) + '</h1>';
     html += '<p class="sub">Établi par ' + esc(data.author || '') + ' le ' + esc(data.editionDate || '') + ' — Réf. ' + esc(data.reference || '') + '</p>';
 
-    html += '<p style="text-align:center;font-size:9pt;font-style:italic;color:#555;margin:0 0 8px;">Vérification effectuée conformément à l\'arrêté du 1er mars 2004 relatif aux vérifications des appareils et accessoires de levage.</p>';
+    html += '<p style="text-align:center;font-size:9pt;font-style:italic;color:#555;margin:0 0 8px;">Réalisé conformément à l\'arrêté du 1er mars 2004.</p>';
     html += '<h2>Informations générales</h2><table>';
     html += tr('Client', data.client.name);
     html += tr('Adresse', data.client.address);
