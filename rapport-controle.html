@@ -276,7 +276,34 @@
               if (line[li].str === 'Présenté') { labelsForLine = ['Présenté', 'Non présenté', 'Non concerné']; break; }
             }
           }
-          points.push({ section: currentSection, name: name, status: parsed.status, labels: labelsForLine || ['Conforme', 'Non conforme', 'Non concerné'] });
+          var annotation = '';
+          var nameX = pendingNameLine[0].x;
+          for (var ai = i + 1; ai < lines.length; ai++) {
+            var aLine = lines[ai];
+            var aText = lineText(aLine);
+            if (!aText || isFooter(aText)) break;
+            if (isStatusLine(aLine)) break;
+            var isSec = false;
+            for (var as2 = 0; as2 < SECTION_NAMES.length; as2++) {
+              if (aText === SECTION_NAMES[as2]) { isSec = true; break; }
+            }
+            if (isSec) break;
+            if (aText === 'Résultat du contrôle' || aText === 'Avis général' ||
+                aText.indexOf('Avis favorable') >= 0 || aText.indexOf('Avis défavorable') >= 0) break;
+            if (/^(Informations|Type de rapport|Identification|Nom de l|Lieu de|Date de|Périodicité|Année|N° série|Horamètre|N° parc|Réf\.|CMU|Hauteur|Type de mât|Marquage|Longueur|Largeur|Épaisseur|Capacité|Équipement|☑|■|Signature)/.test(aText)) break;
+            var firstX = aLine[0].x;
+            if (Math.abs(firstX - nameX) < 20 && aText.length > 1 && aText.length < 200) {
+              var nextIsName = (ai + 1 < lines.length && isStatusLine(lines[ai + 1]));
+              if (!nextIsName) {
+                annotation += (annotation ? ' ' : '') + aText;
+              } else {
+                break;
+              }
+            } else {
+              break;
+            }
+          }
+          points.push({ section: currentSection, name: name, status: parsed.status, labels: labelsForLine || ['Conforme', 'Non conforme', 'Non concerné'], annotation: annotation });
         }
         pendingNameLine = null;
         continue;
@@ -480,18 +507,37 @@
       // Strategy 1: join full line text and split by ☑/■
       var fullLine = lines[el].map(function(it) { return it.str; }).join('');
       if (fullLine.indexOf('☑') >= 0 || fullLine.indexOf('■') >= 0) {
+        var hasAutre = false;
         var parts = fullLine.split(/(?=[☑■])/);
         for (var ep = 0; ep < parts.length; ep++) {
           var part = parts[ep].trim();
-          if (part.charAt(0) === '☑') { // ☑
+          if (part.charAt(0) === '☑') {
             var eqName = part.substring(1).trim();
-            if (eqName && eqName !== 'Autre') equips.push(eqName);
+            if (eqName) {
+              if (eqName === 'Autre') {
+                hasAutre = true;
+              } else {
+                equips.push(eqName);
+              }
+            }
           }
+        }
+        if (hasAutre) {
+          var autreDetail = '';
+          if (el + 1 < lines.length) {
+            var nextLt = lineText(lines[el + 1]);
+            if (nextLt && !/quipement|Longueur|Commentaire|Signature|Capacité|☑|■/.test(nextLt) &&
+                lines[el + 1][0].x > 35 && lines[el + 1][0].x < 60) {
+              autreDetail = nextLt.trim();
+            }
+          }
+          equips.push(autreDetail ? 'Autre (' + autreDetail + ')' : 'Autre');
         }
         continue;
       }
 
       // Strategy 2: items use radio encoding (U+F048 = checked, ● = unchecked)
+      var hasAutre2 = false;
       for (var ej = 0; ej < lines[el].length; ej++) {
         var eItem = lines[el][ej];
         var eStr = eItem.str.trim();
@@ -501,9 +547,20 @@
           if (isRadioSelected(lines[el][ej - eb].str)) { isChecked = true; break; }
           if (lines[el][ej - eb].str === '●') break;
         }
-        if (isChecked && eStr !== 'Autre') {
-          equips.push(eStr);
+        if (isChecked) {
+          if (eStr === 'Autre') { hasAutre2 = true; } else { equips.push(eStr); }
         }
+      }
+      if (hasAutre2) {
+        var autreDetail2 = '';
+        if (el + 1 < lines.length) {
+          var nextLt2 = lineText(lines[el + 1]);
+          if (nextLt2 && !/quipement|Longueur|Commentaire|Signature|Capacité|☑|■/.test(nextLt2) &&
+              lines[el + 1][0].x > 35 && lines[el + 1][0].x < 60) {
+            autreDetail2 = nextLt2.trim();
+          }
+        }
+        equips.push(autreDetail2 ? 'Autre (' + autreDetail2 + ')' : 'Autre');
       }
     }
     // Deduplicate
@@ -710,6 +767,8 @@
     }
 
     console.log('Total control points:', data.controlPoints.length);
+    var annotatedPts = data.controlPoints.filter(function(cp) { return cp.annotation; });
+    if (annotatedPts.length) console.log('Annotations:', annotatedPts.map(function(cp) { return cp.name + ' → ' + cp.annotation; }));
     console.log('Result:', data.result);
 
     await extractPhotos(pdf, data);
@@ -1058,6 +1117,39 @@
             rowsToRemove.push(tblRows[ri]);
           } else {
             updateControlPointCell(cells[0], matchedPoint.status, matchedPoint.labels || ['Conforme', 'Non conforme', 'Non concerné']);
+            if (matchedPoint.annotation) {
+              var annoPara = doc.createElementNS(WNS, 'w:p');
+              var annoPPr = doc.createElementNS(WNS, 'w:pPr');
+              var annoSpacing = doc.createElementNS(WNS, 'w:spacing');
+              annoSpacing.setAttribute('w:before', '40');
+              annoSpacing.setAttribute('w:after', '0');
+              annoPPr.appendChild(annoSpacing);
+              annoPara.appendChild(annoPPr);
+              var annoRun = doc.createElementNS(WNS, 'w:r');
+              var annoRPr = doc.createElementNS(WNS, 'w:rPr');
+              var annoFont = doc.createElementNS(WNS, 'w:rFonts');
+              annoFont.setAttribute('w:ascii', 'Segoe UI');
+              annoFont.setAttribute('w:hAnsi', 'Segoe UI');
+              annoRPr.appendChild(annoFont);
+              annoRPr.appendChild(doc.createElementNS(WNS, 'w:i'));
+              annoRPr.appendChild(doc.createElementNS(WNS, 'w:iCs'));
+              var annoSz = doc.createElementNS(WNS, 'w:sz');
+              annoSz.setAttribute('w:val', '18');
+              annoRPr.appendChild(annoSz);
+              var annoSzCs = doc.createElementNS(WNS, 'w:szCs');
+              annoSzCs.setAttribute('w:val', '18');
+              annoRPr.appendChild(annoSzCs);
+              var annoColor = doc.createElementNS(WNS, 'w:color');
+              annoColor.setAttribute('w:val', 'CC0000');
+              annoRPr.appendChild(annoColor);
+              annoRun.appendChild(annoRPr);
+              var annoT = doc.createElementNS(WNS, 'w:t');
+              annoT.setAttribute('xml:space', 'preserve');
+              annoT.textContent = 'Annotation : ' + matchedPoint.annotation;
+              annoRun.appendChild(annoT);
+              annoPara.appendChild(annoRun);
+              cells[0].appendChild(annoPara);
+            }
           }
         } else if (pointName) {
           rowsToRemove.push(tblRows[ri]);
@@ -1380,7 +1472,8 @@
       for (var j = 0; j < pts.length; j++) {
         var st = pts[j].status;
         var cls = st === 'Non conforme' ? 'nc' : (st === 'Conforme' ? 'c' : '');
-        html += '<tr><td>' + esc(pts[j].name) + '</td><td class="status ' + cls + '">' + esc(st) + '</td></tr>';
+        var annoHtml = pts[j].annotation ? '<br><em style="color:#cc0000;font-size:9pt;">Annotation : ' + esc(pts[j].annotation) + '</em>' : '';
+        html += '<tr><td>' + esc(pts[j].name) + annoHtml + '</td><td class="status ' + cls + '">' + esc(st) + '</td></tr>';
       }
       html += '</table>';
     }
