@@ -276,7 +276,34 @@
               if (line[li].str === 'Présenté') { labelsForLine = ['Présenté', 'Non présenté', 'Non concerné']; break; }
             }
           }
-          points.push({ section: currentSection, name: name, status: parsed.status, labels: labelsForLine || ['Conforme', 'Non conforme', 'Non concerné'] });
+          var annotation = '';
+          var nameX = pendingNameLine[0].x;
+          for (var ai = i + 1; ai < lines.length; ai++) {
+            var aLine = lines[ai];
+            var aText = lineText(aLine);
+            if (!aText || isFooter(aText)) break;
+            if (isStatusLine(aLine)) break;
+            var isSec = false;
+            for (var as2 = 0; as2 < SECTION_NAMES.length; as2++) {
+              if (aText === SECTION_NAMES[as2]) { isSec = true; break; }
+            }
+            if (isSec) break;
+            if (aText === 'Résultat du contrôle' || aText === 'Avis général' ||
+                aText.indexOf('Avis favorable') >= 0 || aText.indexOf('Avis défavorable') >= 0) break;
+            if (/^(Informations|Type de rapport|Identification|Nom de l|Lieu de|Date de|Périodicité|Année|N° série|Horamètre|N° parc|Réf\.|CMU|Hauteur|Type de mât|Marquage|Longueur|Largeur|Épaisseur|Capacité|Équipement|☑|■|Signature)/.test(aText)) break;
+            var firstX = aLine[0].x;
+            if (Math.abs(firstX - nameX) < 20 && aText.length > 1 && aText.length < 200) {
+              var nextIsName = (ai + 1 < lines.length && isStatusLine(lines[ai + 1]));
+              if (!nextIsName) {
+                annotation += (annotation ? ' ' : '') + aText;
+              } else {
+                break;
+              }
+            } else {
+              break;
+            }
+          }
+          points.push({ section: currentSection, name: name, status: parsed.status, labels: labelsForLine || ['Conforme', 'Non conforme', 'Non concerné'], annotation: annotation });
         }
         pendingNameLine = null;
         continue;
@@ -463,28 +490,98 @@
     var ceVal = findSelectedRadio(lines, ['Oui', 'Non'], 'Marquage CE');
     if (ceVal) data.machine.ce = ceVal;
 
-    // Equipements — ☑ (9745) = checked, ■ (9632) = unchecked
-    // In pdf.js, each checkbox and label may be separate items on the same line
-    // Use grouped lines and join text, then split by ☑/■ markers
+    // Equipements — detect checked items using multiple character encodings
+    // pdf.js may return: ☑/■ (U+2611/U+25A0), / (PUA), or radio encoding
+    var CHECKED_CHARS = ['☑', ''];  // ☑ and PUA checked
+    var UNCHECKED_CHARS = ['■', '']; // ■ and PUA unchecked
+    var ALL_CB_CHARS = CHECKED_CHARS.concat(UNCHECKED_CHARS);
+
+    function isCheckedChar(ch) {
+      return CHECKED_CHARS.indexOf(ch) >= 0;
+    }
+    function isAnyCheckboxChar(ch) {
+      return ALL_CB_CHARS.indexOf(ch) >= 0;
+    }
+
     var equips = [];
+    var hasAutreEquip = false;
     var inEquipSection = false;
     for (var el = 0; el < lines.length; el++) {
       var elt = lineText(lines[el]);
-      if (/quipement/i.test(elt) && elt.indexOf('Réf') < 0) { inEquipSection = true; continue; }
-      if (inEquipSection && (/Longueur|Commentaire|Signature/.test(elt))) break;
+      if (/quipement\(s\)/i.test(elt) && elt.indexOf('Réf') < 0 && elt.indexOf('réf') < 0) {
+        inEquipSection = true; continue;
+      }
+      if (inEquipSection && /Longueur|Commentaire|Signature|Capacité de fourches/.test(elt)) break;
       if (!inEquipSection) continue;
-      // Join all items on this line and split by checkbox markers
-      var fullLine = lines[el].map(function(it) { return it.str; }).join('');
-      var parts = fullLine.split(/(?=[☑■])/);
-      for (var ep = 0; ep < parts.length; ep++) {
-        var part = parts[ep].trim();
-        if (part.charAt(0) === '☑') { // ☑
-          var eqName = part.substring(1).trim();
-          if (eqName && eqName !== 'Autre') equips.push(eqName);
+
+      // Process each item on this line individually
+      for (var ej = 0; ej < lines[el].length; ej++) {
+        var eItem = lines[el][ej];
+        var eStr = eItem.str;
+        if (!eStr || eStr.trim().length === 0) continue;
+
+        var firstChar = eStr.charAt(0);
+
+        // Case A: item starts with a checkbox char (e.g. "☑Bip de recul" or "Bip de recul")
+        if (isAnyCheckboxChar(firstChar)) {
+          var eqLabel = eStr.substring(1).trim();
+          if (eqLabel && isCheckedChar(firstChar)) {
+            if (eqLabel === 'Autre') { hasAutreEquip = true; } else { equips.push(eqLabel); }
+          }
+          continue;
+        }
+
+        // Case B: item is a standalone checkbox char, name is in the next item
+        if (eStr.length === 1 && isAnyCheckboxChar(eStr)) {
+          if (isCheckedChar(eStr) && ej + 1 < lines[el].length) {
+            var nextStr = lines[el][ej + 1].str.trim();
+            if (nextStr && !isAnyCheckboxChar(nextStr.charAt(0))) {
+              if (nextStr === 'Autre') { hasAutreEquip = true; } else { equips.push(nextStr); }
+              ej++;
+            }
+          }
+          continue;
+        }
+
+        // Case C: label text preceded by a separate checkbox/radio char
+        if (eStr.trim().length > 1 && !isAnyCheckboxChar(firstChar)) {
+          var eLabel = eStr.trim();
+          if (eLabel === '●' || eLabel === ':') continue;
+          var eChecked = false;
+          for (var eb = 1; eb <= 2 && ej - eb >= 0; eb++) {
+            var prevCh = lines[el][ej - eb].str;
+            if (prevCh === '●' || UNCHECKED_CHARS.indexOf(prevCh) >= 0) break;
+            if (CHECKED_CHARS.indexOf(prevCh) >= 0 || isRadioSelected(prevCh)) { eChecked = true; break; }
+          }
+          if (eChecked) {
+            if (eLabel === 'Autre') { hasAutreEquip = true; } else { equips.push(eLabel); }
+          }
         }
       }
     }
+    if (hasAutreEquip) {
+      var autreDetail = '';
+      // Look for free text line right after the last equipment line
+      for (var al = 0; al < lines.length; al++) {
+        var alt = lineText(lines[al]);
+        if (/Longueur|Commentaire|Signature|Capacité de fourches/.test(alt)) {
+          if (al > 0) {
+            var prevLine = lineText(lines[al - 1]);
+            if (prevLine && !isAnyCheckboxChar(prevLine.charAt(0)) &&
+                !/quipement|Autre/.test(prevLine) && prevLine.length < 100) {
+              autreDetail = prevLine.trim();
+            }
+          }
+          break;
+        }
+      }
+      equips.push(autreDetail ? 'Autre (' + autreDetail + ')' : 'Autre');
+    }
+    // Deduplicate
+    var seen = {};
+    equips = equips.filter(function(e) { if (seen[e]) return false; seen[e] = true; return true; });
     data.machine.equipements = equips.join(', ');
+    console.log('Equipment detected:', equips);
 
     // Fourches — only include dimensions that exist
     var fL = '', fW = '', fE = '';
@@ -521,8 +618,12 @@
           }
         }
       }
-      if (i > 0 && lineText(lines[i - 1]).indexOf('Avis') >= 0 && text && !isFooter(text) && text.indexOf('Avis') < 0) {
-        data.result.observations = text;
+      if (i > 0 && lineText(lines[i - 1]).indexOf('Avis') >= 0 && text && !isFooter(text) && text.indexOf('Avis') < 0 && text.length > 2) {
+        var prevY = lines[i - 1][0].y;
+        var curY = lines[i][0].y;
+        if (Math.abs(curY - prevY) < 40) {
+          data.result.observations = text;
+        }
       }
     }
   }
@@ -571,9 +672,9 @@
     }
 
     // For each photo page, extract caption texts
-    // Layout: 3 photos per row, each at x~33, x~214, x~396
-    // Each caption = 2 text items at similar x: "Section name" (y=N) + "detailX/Y" (y=N+7)
-    // Strategy: group items by column (x-bucket), sort by y, combine consecutive
+    // Captions are the small text below each photo, always containing a "N/N" numbering pattern
+    // Layout: 3 photos per row at x~33, x~214, x~396
+    // Caption can be 1 or 2 lines: "Section nameN/N" or "Section name" + "detailN/N"
     var photosByPage = {};
     for (var phi = 0; phi < data.photos.length; phi++) {
       var pg = data.photos[phi].page;
@@ -582,54 +683,44 @@
     }
     for (var pg2 in photosByPage) {
       var pi2 = await getPageItems(pdf, parseInt(pg2));
-      var capItems = pi2.items.filter(function(it) {
+
+      // Find items that contain the N/N numbering pattern (the anchor of each caption)
+      var anchorItems = pi2.items.filter(function(it) {
         var s = it.str.trim();
-        return s.length > 0 && s.indexOf('BEAUCE') < 0 && s.indexOf('Rapport de contr') < 0 &&
-          s.indexOf('Adresse postale') < 0 && !/^\d+\/\d+$/.test(s) &&
-          !/^(Conforme|Non conforme|Non concern|Oui|Non|Présenté|Avis|Résultat|Essai)/.test(s) &&
-          s.indexOf('#') < 0 && s.indexOf('●') < 0;
+        return s.length > 0 && /\d+\/\d+/.test(s) && it.x < 500;
       });
 
-      // Group items into columns by x-position (buckets of ~150px width)
-      // Each column corresponds to one photo position
-      var columns = {};
-      for (var ci3 = 0; ci3 < capItems.length; ci3++) {
-        var cit = capItems[ci3];
-        // Find which column bucket this item belongs to
-        var colKey = Math.floor(cit.x / 150);
-        if (!columns[colKey]) columns[colKey] = [];
-        columns[colKey].push(cit);
-      }
-
-      // For each column, sort by y and group consecutive items into captions
-      var captions = [];
-      var colKeys = Object.keys(columns).sort(function(a, b) { return a - b; });
-      // Process in row order: sort all items by y first, then within same y-row by x
-      var allSorted = capItems.slice().sort(function(a, b) { return a.y - b.y || a.x - b.x; });
-
-      // Group into caption blocks: items at same x (±30) and consecutive y (gap < 20)
+      // For each anchor, look for a preceding text line at same x to combine
       var captionBlocks = [];
-      var used = {};
-      for (var ci4 = 0; ci4 < allSorted.length; ci4++) {
-        if (used[ci4]) continue;
-        var block = [allSorted[ci4]];
-        used[ci4] = true;
-        // Find continuation items (same x-column, next y-line)
-        for (var ci5 = ci4 + 1; ci5 < allSorted.length; ci5++) {
-          if (used[ci5]) continue;
-          var last = block[block.length - 1];
-          if (Math.abs(allSorted[ci5].x - block[0].x) < 30 &&
-              allSorted[ci5].y - last.y > 0 && allSorted[ci5].y - last.y < 20) {
-            block.push(allSorted[ci5]);
-            used[ci5] = true;
+      for (var ai2 = 0; ai2 < anchorItems.length; ai2++) {
+        var anchor = anchorItems[ai2];
+        var capParts = [anchor.str.trim()];
+        var capY = anchor.y;
+
+        // Look for a preceding item at similar x, slightly above (y gap 3-15)
+        for (var pi4 = 0; pi4 < pi2.items.length; pi4++) {
+          var prev = pi2.items[pi4];
+          if (prev === anchor) continue;
+          if (Math.abs(prev.x - anchor.x) < 30 &&
+              anchor.y - prev.y > 2 && anchor.y - prev.y < 15 &&
+              prev.str.trim().length > 0 && !/\d+\/\d+/.test(prev.str)) {
+            capParts.unshift(prev.str.trim());
+            capY = prev.y;
+            break;
           }
         }
-        var capText = block.map(function(b) { return b.str.trim(); }).join(' ');
-        capText = capText.replace(/(\d+)\/(\d+)/, ' ($1/$2)').replace(/\s+/g, ' ').trim();
-        if (capText.length > 3) captionBlocks.push({ y: block[0].y, x: block[0].x, text: capText });
+
+        var capText = capParts.join(' ');
+        // Clean up: "Section name detail5/14" -> "Section name detail (5/14)"
+        capText = capText.replace(/(\d+\/\d+)/, ' ($1)').replace(/\s+/g, ' ').trim();
+        if (capText.length > 3) {
+          captionBlocks.push({ y: capY, x: anchor.x, text: capText });
+        }
       }
+
       // Sort by y then x to match photo order (row by row, left to right)
       captionBlocks.sort(function(a, b) { return a.y - b.y || a.x - b.x; });
+      console.log('Page ' + pg2 + ' captions:', captionBlocks.map(function(c) { return c.text; }));
 
       var idxs = photosByPage[pg2];
       for (var pi3 = 0; pi3 < idxs.length; pi3++) {
@@ -685,6 +776,8 @@
     }
 
     console.log('Total control points:', data.controlPoints.length);
+    var annotatedPts = data.controlPoints.filter(function(cp) { return cp.annotation; });
+    if (annotatedPts.length) console.log('Annotations:', annotatedPts.map(function(cp) { return cp.name + ' → ' + cp.annotation; }));
     console.log('Result:', data.result);
 
     await extractPhotos(pdf, data);
@@ -1033,6 +1126,39 @@
             rowsToRemove.push(tblRows[ri]);
           } else {
             updateControlPointCell(cells[0], matchedPoint.status, matchedPoint.labels || ['Conforme', 'Non conforme', 'Non concerné']);
+            if (matchedPoint.annotation) {
+              var annoPara = doc.createElementNS(WNS, 'w:p');
+              var annoPPr = doc.createElementNS(WNS, 'w:pPr');
+              var annoSpacing = doc.createElementNS(WNS, 'w:spacing');
+              annoSpacing.setAttribute('w:before', '40');
+              annoSpacing.setAttribute('w:after', '0');
+              annoPPr.appendChild(annoSpacing);
+              annoPara.appendChild(annoPPr);
+              var annoRun = doc.createElementNS(WNS, 'w:r');
+              var annoRPr = doc.createElementNS(WNS, 'w:rPr');
+              var annoFont = doc.createElementNS(WNS, 'w:rFonts');
+              annoFont.setAttribute('w:ascii', 'Segoe UI');
+              annoFont.setAttribute('w:hAnsi', 'Segoe UI');
+              annoRPr.appendChild(annoFont);
+              annoRPr.appendChild(doc.createElementNS(WNS, 'w:i'));
+              annoRPr.appendChild(doc.createElementNS(WNS, 'w:iCs'));
+              var annoSz = doc.createElementNS(WNS, 'w:sz');
+              annoSz.setAttribute('w:val', '18');
+              annoRPr.appendChild(annoSz);
+              var annoSzCs = doc.createElementNS(WNS, 'w:szCs');
+              annoSzCs.setAttribute('w:val', '18');
+              annoRPr.appendChild(annoSzCs);
+              var annoColor = doc.createElementNS(WNS, 'w:color');
+              annoColor.setAttribute('w:val', 'CC0000');
+              annoRPr.appendChild(annoColor);
+              annoRun.appendChild(annoRPr);
+              var annoT = doc.createElementNS(WNS, 'w:t');
+              annoT.setAttribute('xml:space', 'preserve');
+              annoT.textContent = 'Annotation : ' + matchedPoint.annotation;
+              annoRun.appendChild(annoT);
+              annoPara.appendChild(annoRun);
+              cells[0].appendChild(annoPara);
+            }
           }
         } else if (pointName) {
           rowsToRemove.push(tblRows[ri]);
@@ -1355,7 +1481,8 @@
       for (var j = 0; j < pts.length; j++) {
         var st = pts[j].status;
         var cls = st === 'Non conforme' ? 'nc' : (st === 'Conforme' ? 'c' : '');
-        html += '<tr><td>' + esc(pts[j].name) + '</td><td class="status ' + cls + '">' + esc(st) + '</td></tr>';
+        var annoHtml = pts[j].annotation ? '<br><em style="color:#cc0000;font-size:9pt;">Annotation : ' + esc(pts[j].annotation) + '</em>' : '';
+        html += '<tr><td>' + esc(pts[j].name) + annoHtml + '</td><td class="status ' + cls + '">' + esc(st) + '</td></tr>';
       }
       html += '</table>';
     }
