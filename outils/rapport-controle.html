@@ -278,10 +278,12 @@
           }
           var annotation = '';
           var nameX = pendingNameLine[0].x;
+          var prevLineY = lines[i][0].y;
           for (var ai = i + 1; ai < lines.length; ai++) {
             var aLine = lines[ai];
             var aText = lineText(aLine);
             if (!aText || isFooter(aText)) break;
+            if (Math.abs(aLine[0].y - prevLineY) > 30) break;
             if (isStatusLine(aLine)) break;
             var isSec = false;
             for (var as2 = 0; as2 < SECTION_NAMES.length; as2++) {
@@ -296,6 +298,7 @@
               var nextIsName = (ai + 1 < lines.length && isStatusLine(lines[ai + 1]));
               if (!nextIsName) {
                 annotation += (annotation ? ' ' : '') + aText;
+                prevLineY = aLine[0].y;
               } else {
                 break;
               }
@@ -972,6 +975,39 @@
       }
     }
 
+    // Insert "arrêté du 1er mars 2004" paragraph before Table 1
+    var arretePara = doc.createElementNS(WNS, 'w:p');
+    var arretePPr = doc.createElementNS(WNS, 'w:pPr');
+    var arreteJc = doc.createElementNS(WNS, 'w:jc');
+    arreteJc.setAttribute('w:val', 'center');
+    arretePPr.appendChild(arreteJc);
+    var arreteSpacing = doc.createElementNS(WNS, 'w:spacing');
+    arreteSpacing.setAttribute('w:before', '120');
+    arreteSpacing.setAttribute('w:after', '120');
+    arretePPr.appendChild(arreteSpacing);
+    arretePara.appendChild(arretePPr);
+    var arreteRun = doc.createElementNS(WNS, 'w:r');
+    var arreteRPr = doc.createElementNS(WNS, 'w:rPr');
+    var arreteFont = doc.createElementNS(WNS, 'w:rFonts');
+    arreteFont.setAttribute('w:ascii', 'Segoe UI');
+    arreteFont.setAttribute('w:hAnsi', 'Segoe UI');
+    arreteRPr.appendChild(arreteFont);
+    var arreteSz = doc.createElementNS(WNS, 'w:sz');
+    arreteSz.setAttribute('w:val', '18');
+    arreteRPr.appendChild(arreteSz);
+    var arreteSzCs = doc.createElementNS(WNS, 'w:szCs');
+    arreteSzCs.setAttribute('w:val', '18');
+    arreteRPr.appendChild(arreteSzCs);
+    var arreteI = doc.createElementNS(WNS, 'w:i');
+    arreteRPr.appendChild(arreteI);
+    arreteRun.appendChild(arreteRPr);
+    var arreteT = doc.createElementNS(WNS, 'w:t');
+    arreteT.setAttribute('xml:space', 'preserve');
+    arreteT.textContent = 'Vérification effectuée conformément à l\'arrêté du 1er mars 2004 relatif aux vérifications des appareils et accessoires de levage.';
+    arreteRun.appendChild(arreteT);
+    arretePara.appendChild(arreteRun);
+    tables[1].parentNode.insertBefore(arretePara, tables[1]);
+
     // Table 1: Info
     var periMonths = parseInt((data.periodicite || '6').match(/\d+/)?.[0] || '6');
     var prochainControle = addMonths(data.date, periMonths);
@@ -1179,6 +1215,35 @@
       }
       for (var rm = 0; rm < rowsToRemove.length; rm++) {
         rowsToRemove[rm].parentNode.removeChild(rowsToRemove[rm]);
+      }
+      // If all content rows removed, add "Non concerné" row
+      var remainingRows = getTableRows(tables[tableIdx]);
+      if (remainingRows.length <= 1) {
+        var ncRow = doc.createElementNS(WNS, 'w:tr');
+        var ncCell = doc.createElementNS(WNS, 'w:tc');
+        var ncPara = doc.createElementNS(WNS, 'w:p');
+        var ncRun = doc.createElementNS(WNS, 'w:r');
+        var ncRPr = doc.createElementNS(WNS, 'w:rPr');
+        var ncFont = doc.createElementNS(WNS, 'w:rFonts');
+        ncFont.setAttribute('w:ascii', 'Segoe UI');
+        ncFont.setAttribute('w:hAnsi', 'Segoe UI');
+        ncRPr.appendChild(ncFont);
+        var ncSz = doc.createElementNS(WNS, 'w:sz');
+        ncSz.setAttribute('w:val', '20');
+        ncRPr.appendChild(ncSz);
+        var ncI = doc.createElementNS(WNS, 'w:i');
+        ncRPr.appendChild(ncI);
+        var ncColor = doc.createElementNS(WNS, 'w:color');
+        ncColor.setAttribute('w:val', '808080');
+        ncRPr.appendChild(ncColor);
+        ncRun.appendChild(ncRPr);
+        var ncT = doc.createElementNS(WNS, 'w:t');
+        ncT.textContent = 'Non concerné';
+        ncRun.appendChild(ncT);
+        ncPara.appendChild(ncRun);
+        ncCell.appendChild(ncPara);
+        ncRow.appendChild(ncCell);
+        tables[tableIdx].appendChild(ncRow);
       }
     }
 
@@ -1450,6 +1515,7 @@
     html += '<h1>RAPPORT DE ' + esc(typeLabel) + '</h1>';
     html += '<p class="sub">Établi par ' + esc(data.author || '') + ' le ' + esc(data.editionDate || '') + ' — Réf. ' + esc(data.reference || '') + '</p>';
 
+    html += '<p style="text-align:center;font-size:9pt;font-style:italic;color:#555;margin:0 0 8px;">Vérification effectuée conformément à l\'arrêté du 1er mars 2004 relatif aux vérifications des appareils et accessoires de levage.</p>';
     html += '<h2>Informations générales</h2><table>';
     html += tr('Client', data.client.name);
     html += tr('Adresse', data.client.address);
