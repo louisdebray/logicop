@@ -490,6 +490,9 @@
     var ceVal = findSelectedRadio(lines, ['Oui', 'Non'], 'Marquage CE');
     if (ceVal) data.machine.ce = ceVal;
 
+    var energyVal = findSelectedRadio(lines, ['Électrique', 'Gaz', 'Diesel'], 'nergie');
+    if (energyVal) data.machine.energy = energyVal;
+
     // Equipements — detect checked items using multiple character encodings
     // pdf.js may return: ☑/■ (U+2611/U+25A0), / (PUA), or radio encoding
     var CHECKED_CHARS = ['☑', ''];  // ☑ and PUA checked
@@ -595,8 +598,8 @@
       data.machine.fourches = fParts.map(function(p) { return p.replace('mm', ''); }).join(' x ') + ' mm';
     }
 
-    // Energy from type
-    if (data.machine.type) {
+    // Energy fallback from type name (only if radio field not found)
+    if (!data.machine.energy && data.machine.type) {
       var tl = data.machine.type.toLowerCase();
       if (tl.indexOf('électrique') >= 0 || tl.indexOf('electrique') >= 0) data.machine.energy = 'Électrique';
       else if (tl.indexOf('diesel') >= 0) data.machine.energy = 'Diesel';
