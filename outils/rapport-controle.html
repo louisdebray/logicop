@@ -464,23 +464,23 @@
     if (ceVal) data.machine.ce = ceVal;
 
     // Equipements — ☑ (9745) = checked, ■ (9632) = unchecked
-    // Items are strings like "☑ Bip de recul ■ Rétroviseur ☑ Avertisseur sonore"
+    // In pdf.js, each checkbox and label may be separate items on the same line
+    // Use grouped lines and join text, then split by ☑/■ markers
     var equips = [];
     var inEquipSection = false;
-    for (var ei = 0; ei < items.length; ei++) {
-      var es = items[ei].str;
-      if (/quipement\(s\)|quipements/i.test(es) && es.indexOf('Réf') < 0) { inEquipSection = true; continue; }
-      if (inEquipSection && (/Longueur|Commentaire|Signature/.test(es))) { inEquipSection = false; break; }
+    for (var el = 0; el < lines.length; el++) {
+      var elt = lineText(lines[el]);
+      if (/quipement/i.test(elt) && elt.indexOf('Réf') < 0) { inEquipSection = true; continue; }
+      if (inEquipSection && (/Longueur|Commentaire|Signature/.test(elt))) break;
       if (!inEquipSection) continue;
-      if (es.indexOf('☑') >= 0 || es.indexOf('■') >= 0) {
-        // Split by checkbox markers and extract checked ones
-        var parts = es.split(/(?=[☑■])/);
-        for (var ep = 0; ep < parts.length; ep++) {
-          var part = parts[ep].trim();
-          if (part.charAt(0) === '☑') {
-            var eqName = part.substring(1).trim();
-            if (eqName && eqName !== 'Autre') equips.push(eqName);
-          }
+      // Join all items on this line and split by checkbox markers
+      var fullLine = lines[el].map(function(it) { return it.str; }).join('');
+      var parts = fullLine.split(/(?=[☑■])/);
+      for (var ep = 0; ep < parts.length; ep++) {
+        var part = parts[ep].trim();
+        if (part.charAt(0) === '☑') { // ☑
+          var eqName = part.substring(1).trim();
+          if (eqName && eqName !== 'Autre') equips.push(eqName);
         }
       }
     }
@@ -571,8 +571,9 @@
     }
 
     // For each photo page, extract caption texts
-    // Captions appear as 2-line pairs: "Section name" + "detail N/total"
-    // grouped by x-position (3 photos per row at x~33, x~214, x~396)
+    // Layout: 3 photos per row, each at x~33, x~214, x~396
+    // Each caption = 2 text items at similar x: "Section name" (y=N) + "detailX/Y" (y=N+7)
+    // Strategy: group items by column (x-bucket), sort by y, combine consecutive
     var photosByPage = {};
     for (var phi = 0; phi < data.photos.length; phi++) {
       var pg = data.photos[phi].page;
@@ -581,42 +582,59 @@
     }
     for (var pg2 in photosByPage) {
       var pi2 = await getPageItems(pdf, parseInt(pg2));
-      // Filter out header/footer items, keep only caption-like text
       var capItems = pi2.items.filter(function(it) {
         var s = it.str.trim();
         return s.length > 0 && s.indexOf('BEAUCE') < 0 && s.indexOf('Rapport de contr') < 0 &&
           s.indexOf('Adresse postale') < 0 && !/^\d+\/\d+$/.test(s) &&
-          !/^(Conforme|Non conforme|Non concern|Oui|Non|Présenté|Avis)/.test(s) &&
-          s.indexOf('#') < 0;
+          !/^(Conforme|Non conforme|Non concern|Oui|Non|Présenté|Avis|Résultat|Essai)/.test(s) &&
+          s.indexOf('#') < 0 && s.indexOf('●') < 0;
       });
-      // Group caption items by their column position (x) — each photo has captions at similar x
-      // Sort by y then x
-      capItems.sort(function(a, b) { return a.y - b.y || a.x - b.x; });
-      // Find photo captions: they appear in groups at similar x positions
-      // Combine consecutive text items at similar x into one caption
-      var captions = [];
-      var prevX = -999, prevY = -999, curCap = '';
-      for (var ci2 = 0; ci2 < capItems.length; ci2++) {
-        var cit = capItems[ci2];
-        if (Math.abs(cit.x - prevX) < 30 && cit.y - prevY < 15 && cit.y - prevY > 0) {
-          // Continuation of same caption (second line)
-          curCap += ' ' + cit.str.trim();
-        } else {
-          if (curCap) captions.push(curCap);
-          curCap = cit.str.trim();
-        }
-        prevX = cit.x;
-        prevY = cit.y;
+
+      // Group items into columns by x-position (buckets of ~150px width)
+      // Each column corresponds to one photo position
+      var columns = {};
+      for (var ci3 = 0; ci3 < capItems.length; ci3++) {
+        var cit = capItems[ci3];
+        // Find which column bucket this item belongs to
+        var colKey = Math.floor(cit.x / 150);
+        if (!columns[colKey]) columns[colKey] = [];
+        columns[colKey].push(cit);
       }
-      if (curCap) captions.push(curCap);
-      // Clean up captions: "Moteur, transmission et organes d'entraînement1/14" → "Moteur, transmission et organes d'entraînement (1/14)"
-      captions = captions.map(function(c) {
-        return c.replace(/(\d+)\/(\d+)/, ' ($1/$2)').replace(/\s+/g, ' ').trim();
-      });
+
+      // For each column, sort by y and group consecutive items into captions
+      var captions = [];
+      var colKeys = Object.keys(columns).sort(function(a, b) { return a - b; });
+      // Process in row order: sort all items by y first, then within same y-row by x
+      var allSorted = capItems.slice().sort(function(a, b) { return a.y - b.y || a.x - b.x; });
+
+      // Group into caption blocks: items at same x (±30) and consecutive y (gap < 20)
+      var captionBlocks = [];
+      var used = {};
+      for (var ci4 = 0; ci4 < allSorted.length; ci4++) {
+        if (used[ci4]) continue;
+        var block = [allSorted[ci4]];
+        used[ci4] = true;
+        // Find continuation items (same x-column, next y-line)
+        for (var ci5 = ci4 + 1; ci5 < allSorted.length; ci5++) {
+          if (used[ci5]) continue;
+          var last = block[block.length - 1];
+          if (Math.abs(allSorted[ci5].x - block[0].x) < 30 &&
+              allSorted[ci5].y - last.y > 0 && allSorted[ci5].y - last.y < 20) {
+            block.push(allSorted[ci5]);
+            used[ci5] = true;
+          }
+        }
+        var capText = block.map(function(b) { return b.str.trim(); }).join(' ');
+        capText = capText.replace(/(\d+)\/(\d+)/, ' ($1/$2)').replace(/\s+/g, ' ').trim();
+        if (capText.length > 3) captionBlocks.push({ y: block[0].y, x: block[0].x, text: capText });
+      }
+      // Sort by y then x to match photo order (row by row, left to right)
+      captionBlocks.sort(function(a, b) { return a.y - b.y || a.x - b.x; });
+
       var idxs = photosByPage[pg2];
       for (var pi3 = 0; pi3 < idxs.length; pi3++) {
-        if (pi3 < captions.length) {
-          data.photos[idxs[pi3]].caption = captions[pi3];
+        if (pi3 < captionBlocks.length) {
+          data.photos[idxs[pi3]].caption = captionBlocks[pi3].text;
         }
       }
     }
