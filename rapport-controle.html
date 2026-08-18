@@ -110,7 +110,7 @@
   'use strict';
 
   var REPORT_TITLES = {
-    vgp: 'VISITE GENERALE PERIODIQUE',
+    vgp: 'VÉRIFICATION GÉNÉRALE PÉRIODIQUE',
     mise_en_service: 'MISE EN SERVICE INITIALE',
     remise_en_service: 'REMISE EN SERVICE'
   };
@@ -368,7 +368,7 @@
     for (var rl = 0; rl < lines.length; rl++) {
       for (var rj = 2; rj < lines[rl].length; rj++) {
         var rItem = lines[rl][rj];
-        if (rItem.str === 'Visite Générale Périodique' && isRadioSelected(lines[rl][rj - 2].str)) data.reportType = 'vgp';
+        if ((rItem.str === 'Visite Générale Périodique' || rItem.str === 'Vérification Générale Périodique') && isRadioSelected(lines[rl][rj - 2].str)) data.reportType = 'vgp';
         else if (rItem.str === 'Mise en service initiale' && isRadioSelected(lines[rl][rj - 2].str)) data.reportType = 'mise_en_service';
         else if (rItem.str === 'Remise en service' && isRadioSelected(lines[rl][rj - 2].str)) data.reportType = 'remise_en_service';
       }
@@ -395,6 +395,15 @@
           if (sm) data.machine.serial = sm[1].trim();
         }
         break;
+      }
+    }
+
+    // Debug: dump lines containing serial/horamètre/equip keywords
+    for (var dbgi = 0; dbgi < lines.length; dbgi++) {
+      var dbgText = lineText(lines[dbgi]);
+      if (dbgText.indexOf('série') >= 0 || dbgText.indexOf('Horamètre') >= 0 || dbgText.indexOf('oramètre') >= 0 || dbgText.indexOf('horamètre') >= 0) {
+        var dbgItems = lines[dbgi].map(function(it) { return JSON.stringify({s:it.str,x:Math.round(it.x),c0:it.str.charCodeAt(0)}); });
+        console.log('SERIAL/HORA LINE:', dbgItems.join(' | '));
       }
     }
 
@@ -555,24 +564,47 @@
 
             var blob = await new Promise(function(r) { canvas.toBlob(r, 'image/png'); });
             var ab = await blob.arrayBuffer();
-            data.photos.push({ data: new Uint8Array(ab), width: imgObj.width, height: imgObj.height, caption: '' });
+            data.photos.push({ data: new Uint8Array(ab), width: imgObj.width, height: imgObj.height, caption: '', page: p });
           } catch (e) { console.warn('Photo extraction failed:', e); }
         }
       }
     }
 
-    var lastControlPage = Math.min(pdf.numPages - 1, pdf.numPages);
-    var pi = await getPageItems(pdf, lastControlPage);
-    var captionItems = pi.items.filter(function(it) { return it.y > 600 && it.y < 750 && it.str.trim(); });
-    if (captionItems.length) {
-      var captionLines = groupLines(captionItems);
-      for (var cl = 0; cl < captionLines.length; cl++) {
-        var capText = lineText(captionLines[cl]);
-        if (/\d\/\d/.test(capText)) {
-          var caps = capText.split(/(?<=\d\/\d)\s+/);
-          for (var cp = 0; cp < caps.length && cp < data.photos.length; cp++) {
-            data.photos[cp].caption = caps[cp].replace(/(\d\/\d)$/, ' ($1)').trim();
-          }
+    // For each photo, find captions from annotations on the same page
+    // Also find which control point section the photo belongs to
+    var photosByPage = {};
+    for (var phi = 0; phi < data.photos.length; phi++) {
+      var pg = data.photos[phi].page;
+      if (!photosByPage[pg]) photosByPage[pg] = [];
+      photosByPage[pg].push(phi);
+    }
+    for (var pg2 in photosByPage) {
+      var pi2 = await getPageItems(pdf, parseInt(pg2));
+      var pageLines = groupLines(pi2.items);
+      // Find annotations/non-conforme points on this page that have photos
+      var annotations = [];
+      for (var al = 0; al < pageLines.length; al++) {
+        var aText = lineText(pageLines[al]);
+        // Look for control point names (items with status labels nearby)
+        if (aText.indexOf('Non conforme') >= 0 || aText.indexOf('Annotation') >= 0) {
+          var pointName = aText.replace(/[☑☐]\s*(Conforme|Non conforme|Non concerné|Oui|Non|Présentée?|Non présentée?)/g, '').replace(/\s+/g, ' ').trim();
+          if (pointName.length > 3) annotations.push(pointName);
+        }
+      }
+      // Also find section title on this page
+      var sectionTitle = '';
+      for (var sl = 0; sl < pageLines.length; sl++) {
+        var sText = lineText(pageLines[sl]);
+        for (var sni = 0; sni < SECTION_NAMES.length; sni++) {
+          if (sText.indexOf(SECTION_NAMES[sni]) >= 0) { sectionTitle = SECTION_NAMES[sni]; break; }
+        }
+      }
+      var idxs = photosByPage[pg2];
+      for (var pi3 = 0; pi3 < idxs.length; pi3++) {
+        if (pi3 < annotations.length) {
+          data.photos[idxs[pi3]].caption = annotations[pi3];
+        } else if (sectionTitle) {
+          data.photos[idxs[pi3]].caption = sectionTitle;
         }
       }
     }
@@ -771,6 +803,7 @@
   }
 
   function addMonths(dateStr, months) {
+    if (!dateStr) return '';
     var p = dateStr.split('/');
     if (p.length !== 3) return '';
     var d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
@@ -790,21 +823,26 @@
     var tables = doc.getElementsByTagNameNS(WNS, 'tbl');
     console.log('Template tables:', tables.length);
 
-    // Table 0: Title — 4 text nodes: "RAPPORT DE ", "VISITE", " GENERALE PERIODIQUE", "Établi par..."
+    // Table 0: Title — runs: 0="RAPPORT DE " (red), 1="VISITE" (red), 2=" GENERALE PERIODIQUE" (red), 3="Établi par..."
     var t0c1 = getTableCell(tables[0], 0, 1);
     if (t0c1) {
-      var titleNodes = getAllTextNodes(t0c1);
+      var t0runs = t0c1.getElementsByTagNameNS(WNS, 'r');
       var titleStr = REPORT_TITLES[data.reportType] || REPORT_TITLES.vgp;
       var titleUpper = titleStr.toUpperCase();
-      if (titleNodes.length >= 4) {
-        titleNodes[0].textContent = 'RAPPORT DE ';
-        titleNodes[1].textContent = titleUpper;
-        titleNodes[2].textContent = '';
-        titleNodes[3].textContent = 'Établi par ' + (data.inspector || '') + ' le ' + (data.date || '');
-      } else if (titleNodes.length >= 1) {
-        titleNodes[0].textContent = 'RAPPORT DE ' + titleUpper;
-        if (titleNodes.length >= 2) titleNodes[1].textContent = '';
-        if (titleNodes.length >= 3) titleNodes[2].textContent = '';
+      if (t0runs.length >= 4) {
+        // Run 0: "RAPPORT DE " — stays red (C00000), no change needed
+        getAllTextNodes(t0runs[0]).forEach(function(n) { n.textContent = 'RAPPORT DE '; });
+        // Run 1: type part 1 — change to black
+        getAllTextNodes(t0runs[1]).forEach(function(n) { n.textContent = titleUpper; });
+        var rPr1 = t0runs[1].getElementsByTagNameNS(WNS, 'rPr')[0];
+        if (rPr1) {
+          var col1 = rPr1.getElementsByTagNameNS(WNS, 'color')[0];
+          if (col1) col1.setAttribute('w:val', '000000');
+        }
+        // Run 2: clear (was second part of title)
+        getAllTextNodes(t0runs[2]).forEach(function(n) { n.textContent = ''; });
+        // Run 3: "Établi par..."
+        getAllTextNodes(t0runs[3]).forEach(function(n) { n.textContent = 'Établi par ' + (data.inspector || '') + ' le ' + (data.date || ''); });
       }
     }
 
@@ -1228,7 +1266,7 @@
 
   function renderSummary(data) {
     var card = document.getElementById('summaryCard');
-    var typeLabel = data.reportType === 'vgp' ? 'Visite Générale Périodique' :
+    var typeLabel = data.reportType === 'vgp' ? 'Vérification Générale Périodique' :
                     data.reportType === 'mise_en_service' ? 'Mise en service initiale' : 'Remise en service';
     var ncCount = data.controlPoints.filter(function(cp) { return cp.status === 'Non conforme'; }).length;
     var avis = data.result.avis === 'favorable' ? 'Avis favorable' : 'Avis défavorable';
