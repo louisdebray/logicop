@@ -771,6 +771,7 @@
   }
 
   function addMonths(dateStr, months) {
+    if (!dateStr) return '';
     var p = dateStr.split('/');
     if (p.length !== 3) return '';
     var d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
@@ -790,21 +791,26 @@
     var tables = doc.getElementsByTagNameNS(WNS, 'tbl');
     console.log('Template tables:', tables.length);
 
-    // Table 0: Title — 4 text nodes: "RAPPORT DE ", "VISITE", " GENERALE PERIODIQUE", "Établi par..."
+    // Table 0: Title — runs: 0="RAPPORT DE " (red), 1="VISITE" (red), 2=" GENERALE PERIODIQUE" (red), 3="Établi par..."
     var t0c1 = getTableCell(tables[0], 0, 1);
     if (t0c1) {
-      var titleNodes = getAllTextNodes(t0c1);
+      var t0runs = t0c1.getElementsByTagNameNS(WNS, 'r');
       var titleStr = REPORT_TITLES[data.reportType] || REPORT_TITLES.vgp;
       var titleUpper = titleStr.toUpperCase();
-      if (titleNodes.length >= 4) {
-        titleNodes[0].textContent = 'RAPPORT DE ';
-        titleNodes[1].textContent = titleUpper;
-        titleNodes[2].textContent = '';
-        titleNodes[3].textContent = 'Établi par ' + (data.inspector || '') + ' le ' + (data.date || '');
-      } else if (titleNodes.length >= 1) {
-        titleNodes[0].textContent = 'RAPPORT DE ' + titleUpper;
-        if (titleNodes.length >= 2) titleNodes[1].textContent = '';
-        if (titleNodes.length >= 3) titleNodes[2].textContent = '';
+      if (t0runs.length >= 4) {
+        // Run 0: "RAPPORT DE " — stays red (C00000), no change needed
+        getAllTextNodes(t0runs[0]).forEach(function(n) { n.textContent = 'RAPPORT DE '; });
+        // Run 1: type part 1 — change to black
+        getAllTextNodes(t0runs[1]).forEach(function(n) { n.textContent = titleUpper; });
+        var rPr1 = t0runs[1].getElementsByTagNameNS(WNS, 'rPr')[0];
+        if (rPr1) {
+          var col1 = rPr1.getElementsByTagNameNS(WNS, 'color')[0];
+          if (col1) col1.setAttribute('w:val', '000000');
+        }
+        // Run 2: clear (was second part of title)
+        getAllTextNodes(t0runs[2]).forEach(function(n) { n.textContent = ''; });
+        // Run 3: "Établi par..."
+        getAllTextNodes(t0runs[3]).forEach(function(n) { n.textContent = 'Établi par ' + (data.inspector || '') + ' le ' + (data.date || ''); });
       }
     }
 
@@ -1092,9 +1098,8 @@
           var imgPath = 'media/' + imgName;
           var rId = 'rIdPhoto' + (photoIdx + 1);
 
-          // Add image to zip
-          var imgData = photo.dataUrl.split(',')[1];
-          zip.file('word/' + imgPath, imgData, {base64: true});
+          // Add image to zip (photo.data is Uint8Array)
+          zip.file('word/' + imgPath, photo.data);
 
           // Add relationship
           var newRel = relsDoc.createElement('Relationship');
