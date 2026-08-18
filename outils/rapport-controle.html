@@ -372,10 +372,10 @@
       if (m) data.reference = m[1];
 
       m = text.match(/Date\s*:\s*(\S+)/);
-      if (m) data.date = formatDate(m[1]);
+      if (m) { data.editionDate = formatDate(m[1]); data.date = data.editionDate; }
 
       m = text.match(/Par\s*:\s*(.+)/);
-      if (m) data.inspector = m[1].trim();
+      if (m) data.author = m[1].trim();
 
       if (/^[A-ZÀ-Ü][A-ZÀ-Ü\s&]{2,}$/.test(text.trim()) && !data.client.name && !text.match(/BEAUCE|BROUILLON|GERBEUR|CHARIOT|TRANSPALETTE/)) {
         data.client.name = text.trim();
@@ -739,7 +739,7 @@
     var pdf = await lib.getDocument({ data: arrayBuffer }).promise;
 
     var data = {
-      reference: '', date: '', inspector: '', inspectorName: '',
+      reference: '', date: '', editionDate: '', author: '', inspectorName: '',
       lieu: '', periodicite: '', reportType: 'vgp',
       client: { name: '', address: '', account: '' },
       machine: { type: '', brand: '', model: '', serial: '', parc: '',
@@ -755,7 +755,7 @@
 
     var p1 = await getPageItems(pdf, 1);
     parseHeader(p1.items, data);
-    console.log('Header parsed:', JSON.stringify({ref: data.reference, client: data.client.name, inspector: data.inspector, inspectorName: data.inspectorName, date: data.date, lieu: data.lieu, type: data.machine.type, brand: data.machine.brand, model: data.machine.model, parc: data.machine.parc, serial: data.machine.serial, hours: data.machine.hours, year: data.machine.year, cmu: data.machine.cmu, elevation: data.machine.elevation, mat: data.machine.mat, ce: data.machine.ce, energy: data.machine.energy, fourches: data.machine.fourches, capFourches: data.machine.capaciteFourches, equips: data.machine.equipements}, null, 2));
+    console.log('Header parsed:', JSON.stringify({ref: data.reference, client: data.client.name, author: data.author, editionDate: data.editionDate, inspectorName: data.inspectorName, date: data.date, lieu: data.lieu, type: data.machine.type, brand: data.machine.brand, model: data.machine.model, parc: data.machine.parc, serial: data.machine.serial, hours: data.machine.hours, year: data.machine.year, cmu: data.machine.cmu, elevation: data.machine.elevation, mat: data.machine.mat, ce: data.machine.ce, energy: data.machine.energy, fourches: data.machine.fourches, capFourches: data.machine.capaciteFourches, equips: data.machine.equipements}, null, 2));
 
     var mid = p1.width / 2;
     var rightItems1 = p1.items.filter(function(it) { return it.x >= mid; });
@@ -786,8 +786,8 @@
     await extractPhotos(pdf, data);
     console.log('Photos:', data.photos.length);
 
-    if (!data.inspectorName && data.inspector) {
-      data.inspectorName = data.inspector.replace(/^M\.\s*/, '').trim();
+    if (!data.inspectorName && data.author) {
+      data.inspectorName = data.author.replace(/^M\.\s*/, '').trim();
     }
 
     return data;
@@ -968,7 +968,7 @@
         // Run 2: clear (was second part of title)
         getAllTextNodes(t0runs[2]).forEach(function(n) { n.textContent = ''; });
         // Run 3: "Établi par..."
-        getAllTextNodes(t0runs[3]).forEach(function(n) { n.textContent = 'Établi par ' + (data.inspector || '') + ' le ' + (data.date || ''); });
+        getAllTextNodes(t0runs[3]).forEach(function(n) { n.textContent = 'Établi par ' + (data.author || '') + ' le ' + (data.editionDate || ''); });
       }
     }
 
@@ -1448,7 +1448,7 @@
 
     var html = '<!doctype html><html lang="fr"><head><meta charset="UTF-8"><style>' + css + '</style></head><body>';
     html += '<h1>RAPPORT DE ' + esc(typeLabel) + '</h1>';
-    html += '<p class="sub">Établi par ' + esc(data.inspector || '') + ' le ' + esc(data.date || '') + ' — Réf. ' + esc(data.reference || '') + '</p>';
+    html += '<p class="sub">Établi par ' + esc(data.author || '') + ' le ' + esc(data.editionDate || '') + ' — Réf. ' + esc(data.reference || '') + '</p>';
 
     html += '<h2>Informations générales</h2><table>';
     html += tr('Client', data.client.name);
