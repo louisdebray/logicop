@@ -1240,6 +1240,12 @@
       if (gt.indexOf('EUROFEU') >= 0) {
         allTextNodes[gti].textContent = gt.replace(/EUROFEU/g, data.client.name || '');
       }
+      if (gt.indexOf('Problème') >= 0) {
+        allTextNodes[gti].textContent = gt.replace(/\s*Problème/g, '');
+      }
+      if (gt.indexOf('Pré-observation') >= 0) {
+        allTextNodes[gti].textContent = gt.replace(/\s*Pré-observation/g, '');
+      }
     }
 
     // Update header1.xml — dynamic title + reference
