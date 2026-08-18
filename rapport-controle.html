@@ -398,16 +398,20 @@
       }
     }
 
-    // Direct item-based extraction: find a label item, then collect value items
-    // that are on the same y-line and to the right but within a reasonable x-gap
-    function findValueForLabel(items, labelText) {
-      var labelCore = labelText.replace(/\s*:\s*$/, '');
+    // Extract values using regex on individual item text
+    // Many items are "Label : value" in a single string (e.g. "Horamètre : 947 h")
+    // Others have label and value as separate items on the same y-line
+    function extractField(items, labelRegex) {
       for (var fi = 0; fi < items.length; fi++) {
-        var s = items[fi].str.trim();
-        if (s !== labelText && s !== labelCore && s !== labelCore + ' :' && s !== labelCore + ':') continue;
+        var s = items[fi].str;
+        // Case 1: label and value in the same item string (e.g. "Horamètre : 947 h")
+        var inlineMatch = s.match(labelRegex);
+        if (inlineMatch && inlineMatch[1]) return inlineMatch[1].replace(/ /g, ' ').trim();
+        // Case 2: label is this item, value is the next item(s) on the same y
+        var labelOnly = s.match(new RegExp(labelRegex.source.replace(/\\s.*$/, '').replace(/\(.*/, '')));
+        if (!labelOnly) continue;
         var lx = items[fi].x;
         var ly = items[fi].y;
-        // Collect value items: same y (±5), x > label's x, within 250px
         var vals = [];
         for (var fj = 0; fj < items.length; fj++) {
           if (fj === fi) continue;
@@ -417,36 +421,24 @@
           var vs = items[fj].str.trim();
           if (!vs || vs === ':' || vs === '●') continue;
           if (vs.length === 1 && vs.charCodeAt(0) > 60000) continue;
-          // Stop if we hit another known label
-          var isKnown = false;
-          for (var fk = 0; fk < KNOWN_LABELS.length; fk++) {
-            if (vs === KNOWN_LABELS[fk]) { isKnown = true; break; }
-          }
-          if (isKnown) continue;
           vals.push(items[fj].str);
         }
-        if (vals.length) return vals.join(' ').replace(/\s+/g, ' ').trim();
+        if (vals.length) return vals.join(' ').replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
       }
       return '';
     }
 
     var v;
-    v = findValueForLabel(items, "N° série :"); if (v) data.machine.serial = v;
-    v = findValueForLabel(items, "Horamètre :"); if (v) data.machine.hours = v;
-    v = findValueForLabel(items, "Horamètre"); if (v) data.machine.hours = v;
-    v = findValueForLabel(items, "Année de fabrication"); if (v) data.machine.year = v;
-    v = findValueForLabel(items, "CMU"); if (v && /[\d,.]/.test(v)) data.machine.cmu = v;
-    v = findValueForLabel(items, "Hauteur d'élévation"); if (v && /[\d,.]/.test(v)) data.machine.elevation = v;
-    v = findValueForLabel(items, "Nom de l'inspecteur"); if (v) data.inspectorName = v;
-    v = findValueForLabel(items, "Lieu de vérification"); if (v) data.lieu = v;
-    v = findValueForLabel(items, "Date de visite"); if (v) data.date = formatDate(v);
-    v = findValueForLabel(items, "Périodicité réglementaire"); if (v) data.periodicite = v;
-    v = findValueForLabel(items, "Capacité de fourches"); if (v && /[\d,.]/.test(v)) data.machine.capaciteFourches = v;
-
-    // Debug: dump all items to find horamètre
-    console.log('ALL ITEMS with hora/serie:', items.filter(function(it) {
-      return it.str.indexOf('oram') >= 0 || it.str.indexOf('série') >= 0 || it.str.indexOf('Hora') >= 0;
-    }).map(function(it) { return JSON.stringify({s:it.str, x:Math.round(it.x), y:Math.round(it.y)}); }));
+    v = extractField(items, /N° série\s*:\s*(.+)/); if (v) data.machine.serial = v;
+    v = extractField(items, /Horamètre\s*:\s*(.+)/); if (v) data.machine.hours = v;
+    v = extractField(items, /Année de fabrication\s+(.+)/); if (v) data.machine.year = v;
+    v = extractField(items, /^CMU\s+(.+)/); if (v && /[\d,.]/.test(v)) data.machine.cmu = v;
+    v = extractField(items, /Hauteur d'élévation\s+(.+)/); if (v && /[\d,.]/.test(v)) data.machine.elevation = v;
+    v = extractField(items, /Nom de l'inspecteur\s+(.+)/); if (v) data.inspectorName = v;
+    v = extractField(items, /Lieu de vérification\s+(.+)/); if (v) data.lieu = v;
+    v = extractField(items, /Date de visite\s+(.+)/); if (v) data.date = formatDate(v);
+    v = extractField(items, /Périodicité réglementaire\s+(.+)/); if (v) data.periodicite = v;
+    v = extractField(items, /Capacité de fourches\s+(.+)/); if (v && /[\d,.]/.test(v)) data.machine.capaciteFourches = v;
 
     var fullText = lines.map(function(l) { return lineText(l); }).join('\n');
 
@@ -471,22 +463,35 @@
     var ceVal = findSelectedRadio(lines, ['Oui', 'Non'], 'Marquage CE');
     if (ceVal) data.machine.ce = ceVal;
 
-    // Equipements — detect checked checkboxes using individual items
-    // Equipment items are checkboxes: selected = U+F048 (charCode 61528), unselected = ● (charCode 9679)
-    // Look for items in the equipment area (after "Équipements" section label, before "Commentaire"/"Signature"/"Longueur")
+    // Equipements — multiple detection strategies for robustness
+    // ☑ (9745) = checked, ■ (9632) = unchecked
+    // pdf.js may return items as: individual "☑ Name" strings, or checkbox char + name separately,
+    // or the checkbox may be encoded as U+F048 (like radio buttons)
     var equips = [];
     var inEquipSection = false;
     for (var el = 0; el < lines.length; el++) {
       var elt = lineText(lines[el]);
-      // Only trigger on the actual equipment section header, not "Réf. équipement"
-      if (/^.*Équipements?\s*(présents?|complémentaires?|:)/i.test(elt) ||
-          (elt.indexOf('quipement') >= 0 && elt.indexOf('Réf') < 0 && elt.indexOf('réf') < 0 && lines[el][0].x < 100)) {
+      if (/quipement/i.test(elt) && elt.indexOf('Réf') < 0 && elt.indexOf('réf') < 0) {
         inEquipSection = true; continue;
       }
-      if (inEquipSection && (elt.indexOf('Longueur') >= 0 || elt.indexOf('Commentaire') >= 0 ||
-          elt.indexOf('Signature') >= 0 || elt.indexOf('Nom de l') >= 0)) break;
+      if (inEquipSection && /Longueur|Commentaire|Signature|Capacité de fourches/.test(elt)) break;
       if (!inEquipSection) continue;
-      // Scan items on this line for checked checkboxes followed by labels
+
+      // Strategy 1: join full line text and split by ☑/■
+      var fullLine = lines[el].map(function(it) { return it.str; }).join('');
+      if (fullLine.indexOf('☑') >= 0 || fullLine.indexOf('■') >= 0) {
+        var parts = fullLine.split(/(?=[☑■])/);
+        for (var ep = 0; ep < parts.length; ep++) {
+          var part = parts[ep].trim();
+          if (part.charAt(0) === '☑') { // ☑
+            var eqName = part.substring(1).trim();
+            if (eqName && eqName !== 'Autre') equips.push(eqName);
+          }
+        }
+        continue;
+      }
+
+      // Strategy 2: items use radio encoding (U+F048 = checked, ● = unchecked)
       for (var ej = 0; ej < lines[el].length; ej++) {
         var eItem = lines[el][ej];
         var eStr = eItem.str.trim();
@@ -501,20 +506,10 @@
         }
       }
     }
+    // Deduplicate
+    var seen = {};
+    equips = equips.filter(function(e) { if (seen[e]) return false; seen[e] = true; return true; });
     data.machine.equipements = equips.join(', ');
-
-    // Debug equipment
-    console.log('Equipment detected:', equips);
-    var eqDebug = false;
-    for (var edl = 0; edl < lines.length; edl++) {
-      var edt = lineText(lines[edl]);
-      if (/quipement/i.test(edt) && edt.indexOf('Réf') < 0) eqDebug = true;
-      if (eqDebug && (edt.indexOf('Longueur') >= 0 || edt.indexOf('Commentaire') >= 0 || edt.indexOf('Nom de l') >= 0)) { eqDebug = false; break; }
-      if (eqDebug) {
-        var dbgItems2 = lines[edl].map(function(it) { return '{s:' + JSON.stringify(it.str) + ',c0:' + (it.str.length ? it.str.charCodeAt(0) : -1) + ',x:' + Math.round(it.x) + '}'; });
-        console.log('EQUIP LINE:', dbgItems2.join(' | '));
-      }
-    }
 
     // Fourches — only include dimensions that exist
     var fL = '', fW = '', fE = '';
@@ -600,8 +595,10 @@
       }
     }
 
-    // For each photo, find its caption from text on the same page
-    // Photos are on dedicated pages with caption text under/near each image
+    // For each photo page, extract caption texts
+    // Layout: 3 photos per row, each at x~33, x~214, x~396
+    // Each caption = 2 text items at similar x: "Section name" (y=N) + "detailX/Y" (y=N+7)
+    // Strategy: group items by column (x-bucket), sort by y, combine consecutive
     var photosByPage = {};
     for (var phi = 0; phi < data.photos.length; phi++) {
       var pg = data.photos[phi].page;
@@ -610,23 +607,59 @@
     }
     for (var pg2 in photosByPage) {
       var pi2 = await getPageItems(pdf, parseInt(pg2));
-      // Collect all text items that aren't headers/footers
-      var captionTexts = [];
-      var pageTextItems = pi2.items.filter(function(it) {
-        return it.str.trim() && it.str.trim().length > 2 &&
-          it.str.indexOf('BEAUCE') < 0 && it.str.indexOf('Rapport') < 0 &&
-          it.str.indexOf('CHK') < 0 && it.str.indexOf('Page') < 0;
+      var capItems = pi2.items.filter(function(it) {
+        var s = it.str.trim();
+        return s.length > 0 && s.indexOf('BEAUCE') < 0 && s.indexOf('Rapport de contr') < 0 &&
+          s.indexOf('Adresse postale') < 0 && !/^\d+\/\d+$/.test(s) &&
+          !/^(Conforme|Non conforme|Non concern|Oui|Non|Présenté|Avis|Résultat|Essai)/.test(s) &&
+          s.indexOf('#') < 0 && s.indexOf('●') < 0;
       });
-      var capLines = groupLines(pageTextItems);
-      for (var cl2 = 0; cl2 < capLines.length; cl2++) {
-        var ct = lineText(capLines[cl2]).trim();
-        if (ct.length > 3) captionTexts.push(ct);
+
+      // Group items into columns by x-position (buckets of ~150px width)
+      // Each column corresponds to one photo position
+      var columns = {};
+      for (var ci3 = 0; ci3 < capItems.length; ci3++) {
+        var cit = capItems[ci3];
+        // Find which column bucket this item belongs to
+        var colKey = Math.floor(cit.x / 150);
+        if (!columns[colKey]) columns[colKey] = [];
+        columns[colKey].push(cit);
       }
-      console.log('Photo page ' + pg2 + ' captions found:', captionTexts);
+
+      // For each column, sort by y and group consecutive items into captions
+      var captions = [];
+      var colKeys = Object.keys(columns).sort(function(a, b) { return a - b; });
+      // Process in row order: sort all items by y first, then within same y-row by x
+      var allSorted = capItems.slice().sort(function(a, b) { return a.y - b.y || a.x - b.x; });
+
+      // Group into caption blocks: items at same x (±30) and consecutive y (gap < 20)
+      var captionBlocks = [];
+      var used = {};
+      for (var ci4 = 0; ci4 < allSorted.length; ci4++) {
+        if (used[ci4]) continue;
+        var block = [allSorted[ci4]];
+        used[ci4] = true;
+        // Find continuation items (same x-column, next y-line)
+        for (var ci5 = ci4 + 1; ci5 < allSorted.length; ci5++) {
+          if (used[ci5]) continue;
+          var last = block[block.length - 1];
+          if (Math.abs(allSorted[ci5].x - block[0].x) < 30 &&
+              allSorted[ci5].y - last.y > 0 && allSorted[ci5].y - last.y < 20) {
+            block.push(allSorted[ci5]);
+            used[ci5] = true;
+          }
+        }
+        var capText = block.map(function(b) { return b.str.trim(); }).join(' ');
+        capText = capText.replace(/(\d+)\/(\d+)/, ' ($1/$2)').replace(/\s+/g, ' ').trim();
+        if (capText.length > 3) captionBlocks.push({ y: block[0].y, x: block[0].x, text: capText });
+      }
+      // Sort by y then x to match photo order (row by row, left to right)
+      captionBlocks.sort(function(a, b) { return a.y - b.y || a.x - b.x; });
+
       var idxs = photosByPage[pg2];
       for (var pi3 = 0; pi3 < idxs.length; pi3++) {
-        if (pi3 < captionTexts.length) {
-          data.photos[idxs[pi3]].caption = captionTexts[pi3];
+        if (pi3 < captionBlocks.length) {
+          data.photos[idxs[pi3]].caption = captionBlocks[pi3].text;
         }
       }
     }
