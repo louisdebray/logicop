@@ -277,6 +277,16 @@
             }
           }
           var annotation = '';
+          // Check for short annotation on the status line itself (to the right of radio buttons)
+          var STATUS_LABELS = ['Conforme', 'Non conforme', 'Non concerné', 'Oui', 'Non', 'Présentée', 'Non présentée', 'Présenté', 'Non présenté'];
+          for (var si2 = 0; si2 < line.length; si2++) {
+            var sItem = line[si2];
+            var sStr = sItem.str.trim();
+            if (sStr.length > 1 && sItem.x > 200 && STATUS_LABELS.indexOf(sStr) < 0 && !isAnyCheckboxChar(sStr.charAt(0)) && !isRadioSelected(sStr) && sStr !== '●') {
+              annotation = sStr;
+              break;
+            }
+          }
           var nameX = pendingNameLine[0].x;
           var prevLineY = lines[i][0].y;
           for (var ai = i + 1; ai < lines.length; ai++) {
@@ -1006,7 +1016,7 @@
     arreteT.textContent = 'Vérification effectuée conformément à l\'arrêté du 1er mars 2004 relatif aux vérifications des appareils et accessoires de levage.';
     arreteRun.appendChild(arreteT);
     arretePara.appendChild(arreteRun);
-    tables[1].parentNode.insertBefore(arretePara, tables[1]);
+    tables[0].parentNode.insertBefore(arretePara, tables[0].nextSibling);
 
     // Table 1: Info
     var periMonths = parseInt((data.periodicite || '6').match(/\d+/)?.[0] || '6');
@@ -1216,12 +1226,16 @@
       for (var rm = 0; rm < rowsToRemove.length; rm++) {
         rowsToRemove[rm].parentNode.removeChild(rowsToRemove[rm]);
       }
-      // If all content rows removed, add "Non concerné" row
-      var remainingRows = getTableRows(tables[tableIdx]);
-      if (remainingRows.length <= 1) {
-        var ncRow = doc.createElementNS(WNS, 'w:tr');
-        var ncCell = doc.createElementNS(WNS, 'w:tc');
+      // If ALL points in this section are "Non concerné", add a paragraph after the table
+      var allNC = secPoints.length > 0 && secPoints.every(function(cp) { return cp.status === 'Non concerné'; });
+      if (allNC) {
         var ncPara = doc.createElementNS(WNS, 'w:p');
+        var ncPPr = doc.createElementNS(WNS, 'w:pPr');
+        var ncSpacing = doc.createElementNS(WNS, 'w:spacing');
+        ncSpacing.setAttribute('w:before', '40');
+        ncSpacing.setAttribute('w:after', '80');
+        ncPPr.appendChild(ncSpacing);
+        ncPara.appendChild(ncPPr);
         var ncRun = doc.createElementNS(WNS, 'w:r');
         var ncRPr = doc.createElementNS(WNS, 'w:rPr');
         var ncFont = doc.createElementNS(WNS, 'w:rFonts');
@@ -1231,8 +1245,7 @@
         var ncSz = doc.createElementNS(WNS, 'w:sz');
         ncSz.setAttribute('w:val', '20');
         ncRPr.appendChild(ncSz);
-        var ncI = doc.createElementNS(WNS, 'w:i');
-        ncRPr.appendChild(ncI);
+        ncRPr.appendChild(doc.createElementNS(WNS, 'w:i'));
         var ncColor = doc.createElementNS(WNS, 'w:color');
         ncColor.setAttribute('w:val', '808080');
         ncRPr.appendChild(ncColor);
@@ -1241,9 +1254,7 @@
         ncT.textContent = 'Non concerné';
         ncRun.appendChild(ncT);
         ncPara.appendChild(ncRun);
-        ncCell.appendChild(ncPara);
-        ncRow.appendChild(ncCell);
-        tables[tableIdx].appendChild(ncRow);
+        tables[tableIdx].parentNode.insertBefore(ncPara, tables[tableIdx].nextSibling);
       }
     }
 
