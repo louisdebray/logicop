@@ -986,7 +986,7 @@
     var arretePara = doc.createElementNS(WNS, 'w:p');
     var arretePPr = doc.createElementNS(WNS, 'w:pPr');
     var arreteJc = doc.createElementNS(WNS, 'w:jc');
-    arreteJc.setAttribute('w:val', 'center');
+    arreteJc.setAttribute('w:val', 'left');
     arretePPr.appendChild(arreteJc);
     var arreteSpacing = doc.createElementNS(WNS, 'w:spacing');
     arreteSpacing.setAttribute('w:before', '120');
@@ -1523,7 +1523,7 @@
     html += '<h1>RAPPORT DE ' + esc(typeLabel) + '</h1>';
     html += '<p class="sub">Établi par ' + esc(data.author || '') + ' le ' + esc(data.editionDate || '') + ' — Réf. ' + esc(data.reference || '') + '</p>';
 
-    html += '<p style="text-align:center;font-size:9pt;font-style:italic;color:#555;margin:0 0 8px;">Réalisé conformément à l\'arrêté du 1er mars 2004.</p>';
+    html += '<p style="text-align:left;font-size:9pt;font-style:italic;color:#555;margin:0 0 8px;">Réalisé conformément à l\'arrêté du 1er mars 2004.</p>';
     html += '<h2>Informations générales</h2><table>';
     html += tr('Client', data.client.name);
     html += tr('Adresse', data.client.address);
