@@ -8,17 +8,28 @@
 <link rel="stylesheet" href="../assets/css/style.css">
 <style>
   /* ── Barre marques ─────────────────────────────────────────── */
-  .brand-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .brand-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
   .brand-pill {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--panel); border: 1.5px solid var(--panel-border);
-    border-radius: 8px; padding: 8px 16px; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel); border: 2px solid var(--panel-border);
+    border-radius: 10px; padding: 16px 26px; cursor: pointer;
     transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
-    font-size: 0.85rem; font-weight: 600; color: var(--text);
+    font-size: 1rem; font-weight: 700; color: var(--text);
   }
-  .brand-pill img { height: 22px; width: auto; max-width: 90px; object-fit: contain; }
+  .brand-pill img { height: 34px; width: auto; max-width: 130px; object-fit: contain; }
   .brand-pill:hover { border-color: var(--accent); }
   .brand-pill.active { border-color: var(--accent); background: rgba(181,80,42,0.06); box-shadow: 0 0 0 2px rgba(181,80,42,0.12); }
+
+  /* ── CTA recherche intelligente ────────────────────────────── */
+  .smart-cta {
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    background: linear-gradient(135deg, rgba(181,80,42,0.08), rgba(181,80,42,0.02));
+    border: 1.5px solid var(--accent); border-radius: var(--radius);
+    padding: 18px 22px; margin-bottom: 18px;
+  }
+  .smart-cta-text strong { font-size: 1.05rem; display: block; margin-bottom: 3px; }
+  .smart-cta-text p { margin: 0; color: var(--text-dim); font-size: 0.86rem; }
+  .smart-cta button { flex-shrink: 0; font-size: 0.95rem; padding: 12px 22px; }
 
   /* ── Barre filtres ─────────────────────────────────────────── */
   .filter-bar {
@@ -33,6 +44,7 @@
 
   .smart-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   #smartSearchBanner[hidden] { display: none !important; }
+  #filterNbRouesField[hidden] { display: none !important; }
 
   .results-summary { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .results-summary .count { color: var(--text-dim); font-size: 0.88rem; }
@@ -99,7 +111,22 @@
   .config-table-wrap { overflow-x: auto; }
   .config-table-wrap table { font-size: 0.8rem; white-space: nowrap; }
   .config-table-wrap th { white-space: nowrap; }
+  .config-table-wrap td, .config-table-wrap th { height: 38px; vertical-align: middle; box-sizing: border-box; }
   .na-cell { color: var(--text-dim); font-style: italic; }
+  .row-match { background: rgba(63,125,74,0.08); }
+  .row-match td:first-child { border-left: 3px solid var(--ok); }
+  .match-tag { color: var(--ok); font-weight: 700; font-size: 0.72rem; margin-right: 4px; }
+
+  .recommended-callout {
+    display: flex; align-items: center; gap: 10px; background: rgba(63,125,74,0.09);
+    border: 1.5px solid var(--ok); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
+    font-size: 0.88rem; color: var(--text);
+  }
+  .recommended-callout strong { color: var(--ok); }
+
+  .detail-actions { display: flex; gap: 8px; align-items: center; margin: -6px 0 18px; flex-wrap: wrap; }
+  .link-edit-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: -6px 0 18px; }
+  .link-edit-row input { flex: 1 1 260px; }
 
   @media (max-width: 720px) {
     .filter-bar { flex-direction: column; align-items: stretch; }
@@ -133,6 +160,14 @@
   <div id="mainContent" hidden>
     <div class="brand-row" id="brandRow"></div>
 
+    <div class="smart-cta">
+      <div class="smart-cta-text">
+        <strong>🔍 Recherche intelligente</strong>
+        <p>Trouvez le chariot adapté à partir du poids de charge, de la hauteur de pose, de la largeur d'allée et de la hauteur de passage.</p>
+      </div>
+      <button id="btnSmartSearch">Lancer la recherche</button>
+    </div>
+
     <div class="filter-bar">
       <div class="field">
         <label for="filterType">Type de machine</label>
@@ -154,9 +189,16 @@
         <label for="filterHMax">Hauteur mât max</label>
         <select id="filterHMax"><option value="">—</option></select>
       </div>
+      <div class="field">
+        <label for="filterEnergie">Énergie</label>
+        <select id="filterEnergie"><option value="all">Toutes énergies</option></select>
+      </div>
+      <div class="field" id="filterNbRouesField" hidden>
+        <label for="filterNbRoues">Nombre de roues</label>
+        <select id="filterNbRoues"><option value="all">Toutes</option></select>
+      </div>
       <div class="spacer"></div>
       <div class="actions">
-        <button id="btnSmartSearch">🔍 Recherche intelligente</button>
         <button id="btnReset" class="secondary" hidden>Réinitialiser</button>
       </div>
     </div>
@@ -253,14 +295,18 @@
   var SMART_SEARCH_TYPES = ['Chariot élévateur à contrepoids', 'Chariot à mât rétractable'];
 
   var allModels = [];
+  var productLinks = {}; // "marque|modele" -> url
+  var CONTREPOIDS_TYPE = 'Chariot élévateur à contrepoids';
   var state = {
     marque: 'all',
     type: 'all',
+    energie: 'all',
+    nbRoues: 'all',
     capMin: null,
     capMax: null,
     hMin: null,
     hMax: null,
-    smartSearch: null // { criteria, matchedKeys: Set, bestFitKeys: Set }
+    smartSearch: null // { criteria, matchInfo: {key: {matchCap, matchWa}}, count }
   };
 
   function fmtInt(n) {
@@ -351,7 +397,50 @@
       sel.appendChild(opt);
     });
     sel.value = state.type;
-    sel.addEventListener('change', function() { state.type = sel.value; render(); });
+    sel.addEventListener('change', function() {
+      state.type = sel.value;
+      if (state.type !== CONTREPOIDS_TYPE) {
+        state.nbRoues = 'all';
+        document.getElementById('filterNbRoues').value = 'all';
+      }
+      updateNbRouesVisibility();
+      render();
+    });
+  }
+
+  function updateNbRouesVisibility() {
+    document.getElementById('filterNbRouesField').hidden = state.type !== CONTREPOIDS_TYPE;
+  }
+
+  function buildEnergieFilter() {
+    var present = {};
+    allModels.forEach(function(m) { if (m.energie) present[m.energie] = true; });
+    var energies = Object.keys(present).sort();
+    var sel = document.getElementById('filterEnergie');
+    sel.innerHTML = '<option value="all">Toutes énergies</option>';
+    energies.forEach(function(e) {
+      var opt = document.createElement('option');
+      opt.value = e; opt.textContent = e;
+      sel.appendChild(opt);
+    });
+    sel.value = state.energie;
+    sel.addEventListener('change', function() { state.energie = sel.value; render(); });
+  }
+
+  function buildNbRouesFilter() {
+    var present = {};
+    allModels.forEach(function(m) { if (m.nbRoues) present[m.nbRoues] = true; });
+    var values = Object.keys(present).map(Number).sort(function(a, b) { return a - b; });
+    var sel = document.getElementById('filterNbRoues');
+    sel.innerHTML = '<option value="all">Toutes</option>';
+    values.forEach(function(v) {
+      var opt = document.createElement('option');
+      opt.value = v; opt.textContent = v + ' roues';
+      sel.appendChild(opt);
+    });
+    sel.value = state.nbRoues;
+    sel.addEventListener('change', function() { state.nbRoues = sel.value; render(); });
+    updateNbRouesVisibility();
   }
 
   function buildRangeSelects() {
@@ -396,6 +485,8 @@
   function modelPassesFilters(m) {
     if (state.marque !== 'all' && m.marque !== state.marque) return false;
     if (state.type !== 'all' && m.type !== state.type) return false;
+    if (state.energie !== 'all' && m.energie !== state.energie) return false;
+    if (state.nbRoues !== 'all' && String(m.nbRoues) !== String(state.nbRoues)) return false;
     if (state.capMin != null || state.capMax != null) {
       var loC = state.capMin != null ? state.capMin : -Infinity;
       var hiC = state.capMax != null ? state.capMax : Infinity;
@@ -431,31 +522,44 @@
   }
 
   function runSmartSearch(criteria) {
-    var hasAnyCriteria = criteria.poids != null || criteria.hauteurPose != null ||
-      criteria.largeurAllee != null || criteria.hauteurPassage != null;
-
-    var matches = []; // { model, matchCap, matchWa }
+    var matchInfo = {}; // key -> { matchCap, matchWa }
+    var count = 0;
     allModels.forEach(function(m) {
       if (SMART_SEARCH_TYPES.indexOf(m.type) < 0) return;
       var matchingLines = m.configs.filter(function(cfg) { return lineMatchesCriteria(cfg, criteria); });
       if (!matchingLines.length) return;
       var caps = matchingLines.map(function(c) { return c.capaciteNominale; }).filter(function(v) { return typeof v === 'number'; });
       var was = matchingLines.map(function(c) { return c.rayonBraquage; }).filter(function(v) { return typeof v === 'number'; });
-      matches.push({
-        key: m.marque + '|' + m.modele,
+      matchInfo[m.marque + '|' + m.modele] = {
         matchCap: caps.length ? Math.min.apply(null, caps) : (m.capMin != null ? m.capMin : Infinity),
         matchWa: was.length ? Math.min.apply(null, was) : Infinity
-      });
+      };
+      count++;
     });
 
-    matches.sort(function(a, b) { return a.matchCap - b.matchCap || a.matchWa - b.matchWa; });
+    state.smartSearch = { criteria: criteria, matchInfo: matchInfo, count: count };
+  }
 
-    var matchedKeys = {};
-    matches.forEach(function(x) { matchedKeys[x.key] = true; });
-    var bestFitKeys = {};
-    matches.slice(0, 3).forEach(function(x) { bestFitKeys[x.key] = true; });
+  /* Renvoie les lignes de config du modèle qui satisfont la recherche intelligente active,
+     ou null si aucune recherche n'est active. */
+  function smartMatchingConfigs(m) {
+    if (!state.smartSearch) return null;
+    return m.configs.filter(function(cfg) { return lineMatchesCriteria(cfg, state.smartSearch.criteria); });
+  }
 
-    state.smartSearch = { criteria: criteria, hasAnyCriteria: hasAnyCriteria, matchedKeys: matchedKeys, bestFitKeys: bestFitKeys, count: matches.length };
+  /* Parmi les lignes correspondantes, choisit la plus économique (h3 le plus bas,
+     puis rayon de braquage le plus petit) à mettre en avant. */
+  function pickRecommendedConfig(matchingConfigs) {
+    if (!matchingConfigs || !matchingConfigs.length) return null;
+    var sorted = matchingConfigs.slice().sort(function(a, b) {
+      var ah = typeof a.h3 === 'number' ? a.h3 : Infinity;
+      var bh = typeof b.h3 === 'number' ? b.h3 : Infinity;
+      if (ah !== bh) return ah - bh;
+      var aw = typeof a.rayonBraquage === 'number' ? a.rayonBraquage : Infinity;
+      var bw = typeof b.rayonBraquage === 'number' ? b.rayonBraquage : Infinity;
+      return aw - bw;
+    });
+    return sorted[0];
   }
 
   function smartSearchCriteriaLabel(criteria) {
@@ -484,12 +588,20 @@
     html += '<div class="badge-row">';
     if (m.energie) html += '<span class="energie-badge ' + energieBadgeClass(m.energie) + '">' + esc(m.energie) + '</span>';
     html += '</div>';
+    var levéeLabel = 'Levée';
+    var levéeValue = m.h3Min != null ? fmtInt(m.h3Min) + '–' + fmtInt(m.h3Max) + ' mm' : '—';
+    if (state.smartSearch) {
+      var matches = smartMatchingConfigs(m);
+      var reco = pickRecommendedConfig(matches);
+      if (reco && typeof reco.h3 === 'number') {
+        levéeLabel = 'Levée (résultat)';
+        levéeValue = fmtInt(reco.h3) + ' mm';
+      }
+    }
     html += '<div class="model-stats">';
     html += '<div class="stat"><span class="stat-label">Capacité</span><span class="stat-value">' +
       (m.capMin === m.capMax ? fmtInt(m.capMin) + ' kg' : fmtInt(m.capMin) + '–' + fmtInt(m.capMax) + ' kg') + '</span></div>';
-    html += '<div class="stat"><span class="stat-label">Levée</span><span class="stat-value">' +
-      (m.h3Min != null ? fmtInt(m.h3Min) + '–' + fmtInt(m.h3Max) + ' mm' : '—') + '</span></div>';
-    html += '<div class="stat"><span class="stat-label">Configs</span><span class="stat-value">' + m.nbConfigs + '</span></div>';
+    html += '<div class="stat"><span class="stat-label">' + esc(levéeLabel) + '</span><span class="stat-value">' + levéeValue + '</span></div>';
     html += '</div>';
     card.innerHTML = html;
     return card;
@@ -513,27 +625,27 @@
     var normalModels = [];
 
     if (state.smartSearch) {
+      var matchInfo = state.smartSearch.matchInfo;
+      filtered = filtered.filter(function(m) { return !!matchInfo[m.marque + '|' + m.modele]; });
+      // Meilleurs fits recalculés à chaque rendu à partir des filtres actifs (marque, type, tonnage, hauteur...)
+      filtered.sort(function(a, b) {
+        var ia = matchInfo[a.marque + '|' + a.modele], ib = matchInfo[b.marque + '|' + b.modele];
+        return ia.matchCap - ib.matchCap || ia.matchWa - ib.matchWa;
+      });
+      bestFitModels = filtered.slice(0, 3);
+      normalModels = filtered.slice(3);
+
       smartBanner.hidden = false;
       smartBannerText.textContent = 'Recherche intelligente active — ' + smartSearchCriteriaLabel(state.smartSearch.criteria) +
-        ' · ' + state.smartSearch.count + ' modèle(s) trouvé(s)';
-      filtered = filtered.filter(function(m) { return state.smartSearch.matchedKeys[m.marque + '|' + m.modele]; });
-      filtered.forEach(function(m) {
-        var key = m.marque + '|' + m.modele;
-        if (state.smartSearch.bestFitKeys[key]) bestFitModels.push(m);
-        else normalModels.push(m);
-      });
-      // Conserve l'ordre de tri (capacité puis rayon de braquage croissants) pour les meilleurs fits
-      var order = Object.keys(state.smartSearch.bestFitKeys);
-      bestFitModels.sort(function(a, b) {
-        return order.indexOf(a.marque + '|' + a.modele) - order.indexOf(b.marque + '|' + b.modele);
-      });
+        ' · ' + filtered.length + ' modèle(s) trouvé(s)' + (filtered.length !== state.smartSearch.count ? ' (sur ' + state.smartSearch.count + ' au total, filtres actifs)' : '');
     } else {
       smartBanner.hidden = true;
       normalModels = filtered;
     }
 
-    var isFiltered = state.marque !== 'all' || state.type !== 'all' || state.capMin != null ||
-      state.capMax != null || state.hMin != null || state.hMax != null || !!state.smartSearch;
+    var isFiltered = state.marque !== 'all' || state.type !== 'all' || state.energie !== 'all' ||
+      state.nbRoues !== 'all' || state.capMin != null || state.capMax != null ||
+      state.hMin != null || state.hMax != null || !!state.smartSearch;
     resetBtn.hidden = !isFiltered;
 
     var total = bestFitModels.length + normalModels.length;
@@ -551,72 +663,124 @@
   }
 
   function resetAll() {
-    state = { marque: 'all', type: 'all', capMin: null, capMax: null, hMin: null, hMax: null, smartSearch: null };
+    state = { marque: 'all', type: 'all', energie: 'all', nbRoues: 'all', capMin: null, capMax: null, hMin: null, hMax: null, smartSearch: null };
     document.getElementById('filterType').value = 'all';
+    document.getElementById('filterEnergie').value = 'all';
+    document.getElementById('filterNbRoues').value = 'all';
     document.getElementById('filterCapMin').value = '';
     document.getElementById('filterCapMax').value = '';
     document.getElementById('filterHMin').value = '';
     document.getElementById('filterHMax').value = '';
+    updateNbRouesVisibility();
     render();
   }
 
   /* ── Modal détail ─────────────────────────────────────────────────── */
+  var CONFIG_COLUMNS = [
+    { key: 'typeMat', label: 'Type de mât', fmt: fmtCell },
+    { key: 'h3', label: 'h3', fmt: fmtNumCell },
+    { key: 'h1', label: 'h1', fmt: fmtNumCell },
+    { key: 'hauteurPoseMax', label: 'Pose max', fmt: fmtNumCell },
+    { key: 'llibreSansDos', label: 'Lev. libre s/dos', fmt: fmtNumCell },
+    { key: 'llibreAvecDos', label: 'Lev. libre av/dos', fmt: fmtNumCell },
+    { key: 'matDeployeSansDos', label: 'Mât dépl. s/dos', fmt: fmtNumCell },
+    { key: 'matDeployeAvecDos', label: 'Mât dépl. av/dos', fmt: fmtNumCell },
+    { key: 'capaciteNominale', label: 'Cap. nominale', fmt: fmtNumCell },
+    { key: 'capaciteRes500', label: 'Cap. rés. 500', fmt: fmtNumCell },
+    { key: 'capaciteRes600', label: 'Cap. rés. 600', fmt: fmtNumCell },
+    { key: 'rayonBraquage', label: 'Wa', fmt: fmtNumCell },
+    { key: 'hauteurPassageMini', label: 'Passage mini', fmt: fmtNumCell }
+  ];
+
+  function fmtNumCell(val) {
+    return typeof val === 'number' ? fmtInt(val) : fmtCell(val);
+  }
+
+  function columnHasData(configs, key) {
+    return configs.some(function(c) {
+      var v = c[key];
+      return v !== null && v !== undefined && v !== '';
+    });
+  }
+
+  function linkKey(m) { return m.marque + '|' + m.modele; }
+
   function openDetail(m) {
     var content = document.getElementById('detailContent');
+    var matchingConfigs = smartMatchingConfigs(m);
+    var recommended = pickRecommendedConfig(matchingConfigs);
+
     var html = '';
     html += '<h2>' + esc(m.marque) + ' ' + esc(m.modele) + '</h2>';
     html += '<div class="modal-sub">' + esc(m.type) + (m.sousType ? ' · ' + esc(m.sousType) : '') + '</div>';
 
+    if (recommended) {
+      html += '<div class="recommended-callout">✓ <span><strong>Configuration recommandée pour votre recherche :</strong> ' +
+        esc(recommended.typeMat || '') +
+        (typeof recommended.h3 === 'number' ? ' — levée ' + fmtInt(recommended.h3) + ' mm' : '') +
+        (typeof recommended.rayonBraquage === 'number' ? ' — Wa ' + fmtInt(recommended.rayonBraquage) + ' mm' : '') +
+        ' (ligne surlignée dans le tableau ci-dessous)</span></div>';
+    }
+
     html += '<div class="detail-info-grid">';
     html += infoField('Énergie', m.energie);
-    html += infoField('Type de batterie', m.typeBatterie);
     html += infoField('Nombre de roues', m.nbRoues);
-    html += infoField('Fiche source', m.ficheSource);
-    html += infoField('Date de mise à jour', m.dateMaj);
-    html += infoField('Configurations de mât', m.nbConfigs);
+    html += infoField('Hauteur cabine (H6)', typeof m.h6 === 'number' ? fmtInt(m.h6) + ' mm' : m.h6);
     html += '</div>';
 
-    html += '<div class="config-table-wrap"><table><thead><tr>' +
-      '<th>Type de mât</th><th>Réf. option</th><th>Sous-type</th><th>h1</th><th>h3</th><th>Pose max</th>' +
-      '<th>Lev. libre s/dos</th><th>Lev. libre av/dos</th><th>Mât dépl. s/dos</th><th>Mât dépl. av/dos</th>' +
-      '<th>Cap. nominale</th><th>Cap. rés. 500</th><th>Cap. rés. 600</th><th>Wa</th><th>Passage mini</th><th>H6</th><th>Remarques</th>' +
-      '</tr></thead><tbody>';
+    html += '<div class="detail-actions" id="linkActionsRow"></div>';
+
+    var visibleCols = CONFIG_COLUMNS.filter(function(col) { return columnHasData(m.configs, col.key); });
+
+    html += '<div class="config-table-wrap"><table><thead><tr>';
+    visibleCols.forEach(function(col) { html += '<th>' + esc(col.label) + '</th>'; });
+    html += '</tr></thead><tbody>';
 
     var sortedConfigs = m.configs.slice().sort(function(a, b) {
+      var aMatch = matchingConfigs && matchingConfigs.indexOf(a) >= 0;
+      var bMatch = matchingConfigs && matchingConfigs.indexOf(b) >= 0;
+      if (aMatch !== bMatch) return aMatch ? -1 : 1;
       var ah = typeof a.h3 === 'number' ? a.h3 : 0;
       var bh = typeof b.h3 === 'number' ? b.h3 : 0;
       return ah - bh;
     });
 
     sortedConfigs.forEach(function(c) {
-      html += '<tr>';
-      html += '<td>' + fmtCell(c.typeMat) + '</td>';
-      html += '<td>' + fmtCell(c.refMat) + '</td>';
-      html += '<td>' + fmtCell(c.sousType) + '</td>';
-      html += '<td>' + (typeof c.h1 === 'number' ? fmtInt(c.h1) : fmtCell(c.h1)) + '</td>';
-      html += '<td>' + (typeof c.h3 === 'number' ? fmtInt(c.h3) : fmtCell(c.h3)) + '</td>';
-      html += '<td>' + (typeof c.hauteurPoseMax === 'number' ? fmtInt(c.hauteurPoseMax) : fmtCell(c.hauteurPoseMax)) + '</td>';
-      html += '<td>' + (typeof c.llibreSansDos === 'number' ? fmtInt(c.llibreSansDos) : fmtCell(c.llibreSansDos)) + '</td>';
-      html += '<td>' + (typeof c.llibreAvecDos === 'number' ? fmtInt(c.llibreAvecDos) : fmtCell(c.llibreAvecDos)) + '</td>';
-      html += '<td>' + (typeof c.matDeployeSansDos === 'number' ? fmtInt(c.matDeployeSansDos) : fmtCell(c.matDeployeSansDos)) + '</td>';
-      html += '<td>' + (typeof c.matDeployeAvecDos === 'number' ? fmtInt(c.matDeployeAvecDos) : fmtCell(c.matDeployeAvecDos)) + '</td>';
-      html += '<td>' + (typeof c.capaciteNominale === 'number' ? fmtInt(c.capaciteNominale) : fmtCell(c.capaciteNominale)) + '</td>';
-      html += '<td>' + (typeof c.capaciteRes500 === 'number' ? fmtInt(c.capaciteRes500) : fmtCell(c.capaciteRes500)) + '</td>';
-      html += '<td>' + (typeof c.capaciteRes600 === 'number' ? fmtInt(c.capaciteRes600) : fmtCell(c.capaciteRes600)) + '</td>';
-      html += '<td>' + (typeof c.rayonBraquage === 'number' ? fmtInt(c.rayonBraquage) : fmtCell(c.rayonBraquage)) + '</td>';
-      html += '<td>' + (typeof c.hauteurPassageMini === 'number' ? fmtInt(c.hauteurPassageMini) : fmtCell(c.hauteurPassageMini)) + '</td>';
-      html += '<td>' + (typeof c.h6 === 'number' ? fmtInt(c.h6) : fmtCell(c.h6)) + '</td>';
-      html += '<td style="white-space:normal; min-width:200px;">' + fmtCell(c.remarques) + '</td>';
+      var isMatch = matchingConfigs && matchingConfigs.indexOf(c) >= 0;
+      html += '<tr class="' + (isMatch ? 'row-match' : '') + '">';
+      visibleCols.forEach(function(col, idx) {
+        var prefix = (idx === 0 && isMatch) ? '<span class="match-tag">✓</span>' : '';
+        html += '<td>' + prefix + col.fmt(c[col.key]) + '</td>';
+      });
       html += '</tr>';
     });
 
     html += '</tbody></table></div>';
     content.innerHTML = html;
+    renderLinkActions(m);
     document.getElementById('detailModal').hidden = false;
   }
 
   function infoField(label, value) {
     return '<div><div class="info-label">' + esc(label) + '</div><div class="info-value">' + fmtCell(value) + '</div></div>';
+  }
+
+  /* ── Lien produit (lecture seule — géré depuis la page Admin) ─────── */
+  function renderLinkActions(m) {
+    var row = document.getElementById('linkActionsRow');
+    var url = productLinks[linkKey(m)];
+    row.innerHTML = url ? '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener">🔗 Lien produit</a>' : '';
+  }
+
+  async function loadProductLinks() {
+    try {
+      var res = await supabaseClient.from('product_links').select('marque,modele,url');
+      if (res.data) {
+        res.data.forEach(function(row) { productLinks[row.marque + '|' + row.modele] = row.url; });
+      }
+    } catch (e) {
+      console.error('Erreur de chargement des liens produit :', e);
+    }
   }
 
   /* ── Modal recherche intelligente ─────────────────────────────────── */
@@ -666,6 +830,7 @@
     document.getElementById('loadingState').hidden = false;
     try {
       await loadCatalogData();
+      await loadProductLinks();
     } catch (e) {
       console.error('Erreur de chargement du catalogue :', e);
       document.getElementById('loadingState').textContent = "Erreur lors du chargement du catalogue.";
@@ -675,6 +840,8 @@
     document.getElementById('mainContent').hidden = false;
 
     buildTypeFilter();
+    buildEnergieFilter();
+    buildNbRouesFilter();
     buildRangeSelects();
     render();
 

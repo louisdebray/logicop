@@ -84,9 +84,28 @@
       <button class="secondary" id="btnNewCoefficient">+ Nouvel outil : Simulation coefficient</button>
       <button class="secondary" id="btnNewEtiquettes">+ Nouvel outil : Étiquettes BLG</button>
       <button class="secondary" id="btnNewRapport">+ Nouvel outil : Rapport de contrôle</button>
+      <button class="secondary" id="btnNewCatalogue">+ Nouvel outil : Catalogue produits</button>
     </div>
     <div id="toolsList"></div>
     <p class="hint" id="toolsEmpty" hidden>Aucun outil créé pour l'instant.</p>
+  </div>
+
+  <!-- ── LIENS PRODUITS (Catalogue produits) ─────────────────────────────── -->
+  <div class="step">
+    <h2><span class="num">3</span> Liens produits (Catalogue produits)</h2>
+    <p class="hint">Associez un lien (fiche PDF, page constructeur...) à chaque modèle. Les clients voient un
+      bouton "Lien produit" uniquement lorsqu'un lien est renseigné ici.</p>
+    <div class="row">
+      <div class="field grow">
+        <label for="productLinkSearch">Rechercher un modèle</label>
+        <input type="text" id="productLinkSearch" placeholder="ex : FG15N, Mitsubishi...">
+      </div>
+    </div>
+    <table id="productLinksTable">
+      <thead><tr><th>Marque</th><th>Modèle</th><th>Lien</th><th style="width:100px;"></th></tr></thead>
+      <tbody id="productLinksBody"></tbody>
+    </table>
+    <p class="hint" id="productLinksHint">Tapez au moins 2 caractères pour rechercher un modèle.</p>
   </div>
 
   <footer>Logicop — Administration</footer>

@@ -463,6 +463,105 @@
     await loadTools();
   });
 
+  el('btnNewCatalogue').addEventListener('click', async () => {
+    const name = prompt('Nom de l\'outil :', 'Catalogue produits');
+    if (name === null || !name.trim()) return;
+    const description = prompt('Description (visible par le client) :',
+      'Parcourez, filtrez et trouvez le chariot, gerbeur, transpalette ou préparateur de commandes adapté à un besoin client.');
+    if (description === null) return;
+
+    const { error } = await supabaseClient.from('tools').insert({
+      name: name.trim(),
+      description: description.trim(),
+      slug: slugify(name.trim()),
+      config: { appType: 'catalogue_produits' },
+    });
+    if (error) { alert(error.message); return; }
+    await loadTools();
+  });
+
+  // ── Liens produits (Catalogue produits) ─────────────────────────────
+  const productLinkSearch = el('productLinkSearch');
+  const productLinksBody = el('productLinksBody');
+  const productLinksHint = el('productLinksHint');
+  let catalogModels = null; // chargé à la demande depuis outils/catalogue-data.json
+  let productLinksMap = {}; // "marque|modele" -> url
+
+  async function ensureCatalogLoaded() {
+    if (catalogModels) return;
+    const res = await fetch('../outils/catalogue-data.json');
+    catalogModels = await res.json();
+    const { data } = await supabaseClient.from('product_links').select('marque,modele,url');
+    (data || []).forEach((row) => { productLinksMap[`${row.marque}|${row.modele}`] = row.url; });
+  }
+
+  function renderProductLinksRows(query) {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) {
+      productLinksBody.innerHTML = '';
+      productLinksHint.hidden = false;
+      productLinksHint.textContent = 'Tapez au moins 2 caractères pour rechercher un modèle.';
+      return;
+    }
+    const matches = catalogModels.filter((m) =>
+      m.modele.toLowerCase().includes(q) || m.marque.toLowerCase().includes(q)
+    ).slice(0, 30);
+
+    if (!matches.length) {
+      productLinksBody.innerHTML = '';
+      productLinksHint.hidden = false;
+      productLinksHint.textContent = 'Aucun modèle ne correspond à cette recherche.';
+      return;
+    }
+    productLinksHint.hidden = true;
+
+    productLinksBody.innerHTML = matches.map((m) => {
+      const key = `${m.marque}|${m.modele}`;
+      const url = productLinksMap[key] || '';
+      const rowId = key.replace(/[^a-zA-Z0-9]/g, '_');
+      return `<tr>
+        <td>${escHtml(m.marque)}</td>
+        <td>${escHtml(m.modele)}</td>
+        <td><input type="url" data-key="${escHtml(key)}" id="link_${rowId}" placeholder="https://..." value="${escHtml(url)}" style="width:100%;"></td>
+        <td><button class="secondary" data-save="${escHtml(key)}">Enregistrer</button></td>
+      </tr>`;
+    }).join('');
+
+    productLinksBody.querySelectorAll('button[data-save]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const key = btn.getAttribute('data-save');
+        const [marque, modele] = key.split('|');
+        const input = productLinksBody.querySelector(`input[data-key="${CSS.escape(key)}"]`);
+        const url = input.value.trim();
+        btn.disabled = true;
+        try {
+          if (url) {
+            const { error } = await supabaseClient.from('product_links')
+              .upsert({ marque, modele, url, updated_at: new Date().toISOString() }, { onConflict: 'marque,modele' });
+            if (error) throw error;
+            productLinksMap[key] = url;
+          } else {
+            const { error } = await supabaseClient.from('product_links').delete().eq('marque', marque).eq('modele', modele);
+            if (error) throw error;
+            delete productLinksMap[key];
+          }
+        } catch (e) {
+          alert(e.message || 'Erreur lors de l\'enregistrement du lien.');
+        }
+        btn.disabled = false;
+      });
+    });
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  productLinkSearch.addEventListener('input', async () => {
+    await ensureCatalogLoaded();
+    renderProductLinksRows(productLinkSearch.value);
+  });
+
   (async function init() {
     const session = await requireSession('login.html');
     if (!session) return;
