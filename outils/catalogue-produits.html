@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catalogue produits — Logicop</title>
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+<style>
+  /* ── Barre marques ─────────────────────────────────────────── */
+  .brand-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .brand-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border: 1.5px solid var(--panel-border);
+    border-radius: 8px; padding: 8px 16px; cursor: pointer;
+    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    font-size: 0.85rem; font-weight: 600; color: var(--text);
+  }
+  .brand-pill img { height: 22px; width: auto; max-width: 90px; object-fit: contain; }
+  .brand-pill:hover { border-color: var(--accent); }
+  .brand-pill.active { border-color: var(--accent); background: rgba(181,80,42,0.06); box-shadow: 0 0 0 2px rgba(181,80,42,0.12); }
+
+  /* ── Barre filtres ─────────────────────────────────────────── */
+  .filter-bar {
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+    padding: 14px 16px; background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: var(--radius); margin-bottom: 18px;
+  }
+  .filter-bar .field { min-width: 140px; }
+  .filter-bar .field label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .03em; font-family: var(--font-mono); }
+  .filter-bar .spacer { flex: 1 1 auto; min-width: 0; }
+  .filter-bar .actions { display: flex; gap: 8px; margin-left: auto; }
+
+  .smart-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #smartSearchBanner[hidden] { display: none !important; }
+
+  .results-summary { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .results-summary .count { color: var(--text-dim); font-size: 0.88rem; }
+
+  .best-fit-section { margin-bottom: 28px; }
+  .best-fit-section h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .03em; color: var(--accent); margin: 0 0 12px; font-family: var(--font-mono); }
+
+  /* ── Carte modèle ──────────────────────────────────────────── */
+  .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; }
+  .model-card {
+    position: relative; background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: var(--radius); padding: 16px; cursor: pointer;
+    display: flex; flex-direction: column; gap: 8px;
+    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+  }
+  .model-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 10px 22px rgba(16,17,20,0.08); }
+  .model-card.best-fit { border-color: var(--accent); background: rgba(181,80,42,0.04); }
+  .best-fit-ribbon {
+    position: absolute; top: -1px; right: 12px; background: var(--accent); color: #fff;
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    padding: 3px 9px; border-radius: 0 0 6px 6px; font-family: var(--font-mono);
+  }
+  .model-card-top { display: flex; align-items: center; justify-content: space-between; }
+  .model-card-top img { height: 24px; max-width: 100px; object-fit: contain; object-position: left; }
+  .model-card h3 { margin: 0; font-size: 1.15rem; font-family: var(--font-body); font-weight: 700; }
+  .model-meta { color: var(--text-dim); font-size: 0.82rem; }
+  .badge-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .energie-badge {
+    display: inline-block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .03em; padding: 2px 8px; border-radius: 20px; border: 1.5px solid; font-family: var(--font-mono);
+  }
+  .energie-badge.electrique { color: var(--ok); border-color: var(--ok); }
+  .energie-badge.diesel { color: var(--warn); border-color: var(--warn); }
+  .energie-badge.gaz { color: var(--accent); border-color: var(--accent); }
+  .model-stats { display: flex; gap: 14px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--panel-border); }
+  .model-stats .stat { display: flex; flex-direction: column; gap: 2px; }
+  .model-stats .stat-label { font-size: 0.65rem; text-transform: uppercase; color: var(--text-dim); font-family: var(--font-mono); letter-spacing: .03em; }
+  .model-stats .stat-value { font-size: 0.92rem; font-weight: 700; color: var(--text); }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+
+  /* ── Modales ───────────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(16,17,20,0.55); z-index: 1000;
+    display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto;
+  }
+  .modal-overlay[hidden] { display: none; }
+  .modal {
+    position: relative; background: var(--bg-soft); border-radius: var(--radius);
+    max-width: 880px; width: 100%; padding: 28px; box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px; background: none; border: none; color: var(--text-dim);
+    font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 4px 8px; box-shadow: none;
+  }
+  .modal-close:hover { color: var(--text); background: var(--input-bg); border-radius: 6px; transform: none; box-shadow: none; }
+  .modal h2 { margin: 0 0 4px; font-size: 1.4rem; }
+  .modal .modal-sub { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 18px; }
+  .detail-info-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 18px;
+    margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--panel-border);
+  }
+  .detail-info-grid .info-label { font-size: 0.68rem; text-transform: uppercase; color: var(--text-dim); font-family: var(--font-mono); letter-spacing: .03em; }
+  .detail-info-grid .info-value { font-size: 0.94rem; font-weight: 600; }
+  .config-table-wrap { overflow-x: auto; }
+  .config-table-wrap table { font-size: 0.8rem; white-space: nowrap; }
+  .config-table-wrap th { white-space: nowrap; }
+  .na-cell { color: var(--text-dim); font-style: italic; }
+
+  @media (max-width: 720px) {
+    .filter-bar { flex-direction: column; align-items: stretch; }
+    .filter-bar .actions { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+  <nav>
+    <span id="navAccount"></span>
+  </nav>
+</div>
+
+<main>
+  <p style="margin-bottom:8px;"><a href="../pages/dashboard.html" id="backLink">← Mes outils</a></p>
+  <div class="hero" style="padding-top:10px; text-align:left;">
+    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Catalogue produits</h1>
+    <p id="toolDesc" style="margin:4px 0 0;"></p>
+  </div>
+
+  <div class="step" id="notFoundStep" hidden>
+    <p class="hint">Cet outil est introuvable ou ne vous a pas été attribué. Retournez à
+       <a href="../pages/dashboard.html">vos outils</a>.</p>
+  </div>
+
+  <div id="loadingState" hidden><p class="hint">Chargement du catalogue…</p></div>
+
+  <div id="mainContent" hidden>
+    <div class="brand-row" id="brandRow"></div>
+
+    <div class="filter-bar">
+      <div class="field">
+        <label for="filterType">Type de machine</label>
+        <select id="filterType"><option value="all">Tous types</option></select>
+      </div>
+      <div class="field">
+        <label for="filterCapMin">Tonnage min</label>
+        <select id="filterCapMin"><option value="">—</option></select>
+      </div>
+      <div class="field">
+        <label for="filterCapMax">Tonnage max</label>
+        <select id="filterCapMax"><option value="">—</option></select>
+      </div>
+      <div class="field">
+        <label for="filterHMin">Hauteur mât min</label>
+        <select id="filterHMin"><option value="">—</option></select>
+      </div>
+      <div class="field">
+        <label for="filterHMax">Hauteur mât max</label>
+        <select id="filterHMax"><option value="">—</option></select>
+      </div>
+      <div class="spacer"></div>
+      <div class="actions">
+        <button id="btnSmartSearch">🔍 Recherche intelligente</button>
+        <button id="btnReset" class="secondary" hidden>Réinitialiser</button>
+      </div>
+    </div>
+
+    <div id="smartSearchBanner" class="status warn smart-banner" hidden>
+      <span id="smartSearchBannerText"></span>
+      <button id="btnClearSmartSearch" class="secondary" style="flex-shrink:0;">Quitter la recherche intelligente</button>
+    </div>
+
+    <div class="results-summary">
+      <span class="count" id="resultsCount"></span>
+    </div>
+
+    <div class="best-fit-section" id="bestFitSection" hidden>
+      <h2>★ Meilleurs fits</h2>
+      <div class="model-grid" id="bestFitGrid"></div>
+    </div>
+
+    <div class="model-grid" id="modelsGrid"></div>
+    <div class="empty-state" id="emptyState" hidden>Aucun modèle ne correspond à ces critères.</div>
+  </div>
+
+  <footer>Logicop</footer>
+</main>
+
+<!-- Modal détail modèle -->
+<div class="modal-overlay" id="detailModal" hidden>
+  <div class="modal">
+    <button class="modal-close" id="detailClose" aria-label="Fermer">×</button>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<!-- Modal recherche intelligente -->
+<div class="modal-overlay" id="smartModal" hidden>
+  <div class="modal" style="max-width:640px;">
+    <button class="modal-close" id="smartClose" aria-label="Fermer">×</button>
+    <h2>Recherche intelligente</h2>
+    <p class="modal-sub">S'applique uniquement aux chariots élévateurs (à contrepoids et à mât rétractable). Tous les champs sont optionnels.</p>
+    <div class="row">
+      <div class="field grow">
+        <label for="sPoids">Poids de la charge (kg)</label>
+        <input type="number" id="sPoids" min="0" placeholder="ex : 1200">
+      </div>
+      <div class="field">
+        <label for="sCdg">Centre de gravité</label>
+        <select id="sCdg">
+          <option value="500">500 mm</option>
+          <option value="600">600 mm</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field grow">
+        <label for="sHauteurPose">Hauteur de pose maxi souhaitée (mm)</label>
+        <input type="number" id="sHauteurPose" min="0" placeholder="ex : 6000">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field grow">
+        <label for="sLargeurAllee">Largeur d'allée disponible (mm)</label>
+        <input type="number" id="sLargeurAllee" min="0" placeholder="ex : 3200">
+      </div>
+      <div class="field grow">
+        <label for="sHauteurPassage">Hauteur de passage disponible (mm)</label>
+        <input type="number" id="sHauteurPassage" min="0" placeholder="ex : 2500">
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <button id="btnSmartSubmit">Rechercher</button>
+      <button id="btnSmartCancel" class="secondary">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../assets/js/supabase-config.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  var BRAND_LOGOS = {
+    'Mitsubishi': '../assets/img/logo.mitsubishi.png',
+    'Hangcha': '../assets/img/logo.hangcha.png',
+    'BYD': '../assets/img/logo.byd.png',
+    'EP': '../assets/img/logo.ep.png',
+    'Noblelift': '../assets/img/logo.noblelift.png'
+  };
+  var BRAND_ORDER = ['Mitsubishi', 'Hangcha', 'BYD', 'EP', 'Noblelift'];
+  var TYPE_ORDER = [
+    'Chariot élévateur à contrepoids', 'Chariot à mât rétractable',
+    'Gerbeur / Empileur', 'Transpalette électrique', 'Préparateur de commandes'
+  ];
+  var SMART_SEARCH_TYPES = ['Chariot élévateur à contrepoids', 'Chariot à mât rétractable'];
+
+  var allModels = [];
+  var state = {
+    marque: 'all',
+    type: 'all',
+    capMin: null,
+    capMax: null,
+    hMin: null,
+    hMax: null,
+    smartSearch: null // { criteria, matchedKeys: Set, bestFitKeys: Set }
+  };
+
+  function fmtInt(n) {
+    if (n == null || isNaN(n)) return '';
+    return Math.round(n).toLocaleString('fr-FR');
+  }
+
+  function fmtTonnes(kg) {
+    if (kg == null) return '';
+    var t = kg / 1000;
+    var s = (Math.round(t * 10) / 10).toLocaleString('fr-FR', { minimumFractionDigits: (t % 1 !== 0 ? 1 : 0), maximumFractionDigits: 1 });
+    return s + ' t';
+  }
+
+  function fmtCell(val) {
+    if (val === 'NC') return '<span class="na-cell">Non applicable</span>';
+    if (val === null || val === undefined || val === '') return '<span class="na-cell">Non renseigné</span>';
+    return esc(String(val));
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function energieBadgeClass(energie) {
+    if (energie === 'Électrique') return 'electrique';
+    if (energie === 'Diesel') return 'diesel';
+    if (energie === 'Gaz') return 'gaz';
+    return '';
+  }
+
+  /* ── Chargement des données ──────────────────────────────────────── */
+  function loadCatalogData() {
+    return fetch('catalogue-data.json').then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function(data) {
+      allModels = data;
+    });
+  }
+
+  /* ── Construction des filtres ─────────────────────────────────────── */
+  function buildBrandRow() {
+    var present = {};
+    allModels.forEach(function(m) { present[m.marque] = (present[m.marque] || 0) + 1; });
+    var brands = BRAND_ORDER.filter(function(b) { return present[b] > 0; });
+    // Ajoute toute marque future non prévue dans l'ordre fixe
+    Object.keys(present).forEach(function(b) { if (brands.indexOf(b) < 0) brands.push(b); });
+
+    var row = document.getElementById('brandRow');
+    row.innerHTML = '';
+
+    var allPill = document.createElement('div');
+    allPill.className = 'brand-pill' + (state.marque === 'all' ? ' active' : '');
+    allPill.textContent = 'Toutes marques';
+    allPill.addEventListener('click', function() { state.marque = 'all'; render(); });
+    row.appendChild(allPill);
+
+    brands.forEach(function(b) {
+      var pill = document.createElement('div');
+      pill.className = 'brand-pill' + (state.marque === b ? ' active' : '');
+      var logo = BRAND_LOGOS[b];
+      if (logo) {
+        var img = document.createElement('img');
+        img.src = logo;
+        img.alt = b;
+        img.onerror = function() { img.remove(); pill.appendChild(document.createTextNode(b)); };
+        pill.appendChild(img);
+      } else {
+        pill.appendChild(document.createTextNode(b));
+      }
+      pill.addEventListener('click', function() { state.marque = b; render(); });
+      row.appendChild(pill);
+    });
+  }
+
+  function buildTypeFilter() {
+    var present = {};
+    allModels.forEach(function(m) { present[m.type] = true; });
+    var types = TYPE_ORDER.filter(function(t) { return present[t]; });
+    var sel = document.getElementById('filterType');
+    sel.innerHTML = '<option value="all">Tous types</option>';
+    types.forEach(function(t) {
+      var opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      sel.appendChild(opt);
+    });
+    sel.value = state.type;
+    sel.addEventListener('change', function() { state.type = sel.value; render(); });
+  }
+
+  function buildRangeSelects() {
+    var capVals = [];
+    var h3Vals = [];
+    allModels.forEach(function(m) {
+      if (m.capMin != null) capVals.push(m.capMin);
+      if (m.capMax != null) capVals.push(m.capMax);
+      if (m.h3Min != null) h3Vals.push(m.h3Min);
+      if (m.h3Max != null) h3Vals.push(m.h3Max);
+    });
+    var capLo = Math.floor(Math.min.apply(null, capVals) / 500) * 500;
+    var capHi = Math.ceil(Math.max.apply(null, capVals) / 500) * 500;
+    var hLo = Math.floor(Math.min.apply(null, h3Vals) / 500) * 500;
+    var hHi = Math.ceil(Math.max.apply(null, h3Vals) / 500) * 500;
+
+    var capOptions = [];
+    for (var c = capLo; c <= capHi; c += 500) capOptions.push(c);
+    var hOptions = [];
+    for (var h = hLo; h <= hHi; h += 500) hOptions.push(h);
+
+    fillSelect('filterCapMin', capOptions, fmtTonnes, function(v) { state.capMin = v; render(); });
+    fillSelect('filterCapMax', capOptions, fmtTonnes, function(v) { state.capMax = v; render(); });
+    fillSelect('filterHMin', hOptions, function(v) { return fmtInt(v) + ' mm'; }, function(v) { state.hMin = v; render(); });
+    fillSelect('filterHMax', hOptions, function(v) { return fmtInt(v) + ' mm'; }, function(v) { state.hMax = v; render(); });
+  }
+
+  function fillSelect(id, values, fmt, onChange) {
+    var sel = document.getElementById(id);
+    sel.innerHTML = '<option value="">—</option>';
+    values.forEach(function(v) {
+      var opt = document.createElement('option');
+      opt.value = v; opt.textContent = fmt(v);
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', function() {
+      onChange(sel.value === '' ? null : Number(sel.value));
+    });
+  }
+
+  /* ── Logique de filtrage catalogue ────────────────────────────────── */
+  function modelPassesFilters(m) {
+    if (state.marque !== 'all' && m.marque !== state.marque) return false;
+    if (state.type !== 'all' && m.type !== state.type) return false;
+    if (state.capMin != null || state.capMax != null) {
+      var loC = state.capMin != null ? state.capMin : -Infinity;
+      var hiC = state.capMax != null ? state.capMax : Infinity;
+      if (m.capMax == null || m.capMin == null || m.capMax < loC || m.capMin > hiC) return false;
+    }
+    if (state.hMin != null || state.hMax != null) {
+      var loH = state.hMin != null ? state.hMin : -Infinity;
+      var hiH = state.hMax != null ? state.hMax : Infinity;
+      if (m.h3Max == null || m.h3Min == null || m.h3Max < loH || m.h3Min > hiH) return false;
+    }
+    return true;
+  }
+
+  /* ── Logique recherche intelligente ───────────────────────────────── */
+  /* Évalue UNE ligne de config contre les critères saisis par l'utilisateur.
+     Structure isolée pour pouvoir affiner la formule de largeur d'allée plus tard. */
+  function lineMatchesCriteria(cfg, criteria) {
+    if (criteria.poids != null) {
+      var resKey = criteria.cdg === 600 ? 'capaciteRes600' : 'capaciteRes500';
+      var val = cfg[resKey];
+      if (val == null || val === 'NC' || typeof val !== 'number' || val < criteria.poids) return false;
+    }
+    if (criteria.hauteurPose != null) {
+      if (typeof cfg.hauteurPoseMax !== 'number' || cfg.hauteurPoseMax < criteria.hauteurPose) return false;
+    }
+    if (criteria.largeurAllee != null) {
+      if (typeof cfg.rayonBraquage !== 'number' || cfg.rayonBraquage > criteria.largeurAllee) return false;
+    }
+    if (criteria.hauteurPassage != null) {
+      if (typeof cfg.hauteurPassageMini !== 'number' || cfg.hauteurPassageMini > criteria.hauteurPassage) return false;
+    }
+    return true;
+  }
+
+  function runSmartSearch(criteria) {
+    var hasAnyCriteria = criteria.poids != null || criteria.hauteurPose != null ||
+      criteria.largeurAllee != null || criteria.hauteurPassage != null;
+
+    var matches = []; // { model, matchCap, matchWa }
+    allModels.forEach(function(m) {
+      if (SMART_SEARCH_TYPES.indexOf(m.type) < 0) return;
+      var matchingLines = m.configs.filter(function(cfg) { return lineMatchesCriteria(cfg, criteria); });
+      if (!matchingLines.length) return;
+      var caps = matchingLines.map(function(c) { return c.capaciteNominale; }).filter(function(v) { return typeof v === 'number'; });
+      var was = matchingLines.map(function(c) { return c.rayonBraquage; }).filter(function(v) { return typeof v === 'number'; });
+      matches.push({
+        key: m.marque + '|' + m.modele,
+        matchCap: caps.length ? Math.min.apply(null, caps) : (m.capMin != null ? m.capMin : Infinity),
+        matchWa: was.length ? Math.min.apply(null, was) : Infinity
+      });
+    });
+
+    matches.sort(function(a, b) { return a.matchCap - b.matchCap || a.matchWa - b.matchWa; });
+
+    var matchedKeys = {};
+    matches.forEach(function(x) { matchedKeys[x.key] = true; });
+    var bestFitKeys = {};
+    matches.slice(0, 3).forEach(function(x) { bestFitKeys[x.key] = true; });
+
+    state.smartSearch = { criteria: criteria, hasAnyCriteria: hasAnyCriteria, matchedKeys: matchedKeys, bestFitKeys: bestFitKeys, count: matches.length };
+  }
+
+  function smartSearchCriteriaLabel(criteria) {
+    var parts = [];
+    if (criteria.poids != null) parts.push('charge ≥ ' + fmtInt(criteria.poids) + ' kg à ' + criteria.cdg + ' mm');
+    if (criteria.hauteurPose != null) parts.push('pose ≤ ' + fmtInt(criteria.hauteurPose) + ' mm');
+    if (criteria.largeurAllee != null) parts.push('allée ≥ ' + fmtInt(criteria.largeurAllee) + ' mm');
+    if (criteria.hauteurPassage != null) parts.push('passage ≥ ' + fmtInt(criteria.hauteurPassage) + ' mm');
+    return parts.length ? parts.join(' · ') : 'aucun critère renseigné';
+  }
+
+  /* ── Rendu cartes ─────────────────────────────────────────────────── */
+  function buildCard(m, isBestFit) {
+    var card = document.createElement('div');
+    card.className = 'model-card' + (isBestFit ? ' best-fit' : '');
+    card.addEventListener('click', function() { openDetail(m); });
+
+    var html = '';
+    if (isBestFit) html += '<div class="best-fit-ribbon">★ Meilleur fit</div>';
+    html += '<div class="model-card-top">';
+    var logo = BRAND_LOGOS[m.marque];
+    html += logo ? '<img src="' + logo + '" alt="' + esc(m.marque) + '" onerror="this.replaceWith(document.createTextNode(\'' + esc(m.marque) + '\'))">' : '<span style="font-weight:700;">' + esc(m.marque) + '</span>';
+    html += '</div>';
+    html += '<h3>' + esc(m.modele) + '</h3>';
+    html += '<div class="model-meta">' + esc(m.type) + (m.sousType ? ' · ' + esc(m.sousType) : '') + '</div>';
+    html += '<div class="badge-row">';
+    if (m.energie) html += '<span class="energie-badge ' + energieBadgeClass(m.energie) + '">' + esc(m.energie) + '</span>';
+    html += '</div>';
+    html += '<div class="model-stats">';
+    html += '<div class="stat"><span class="stat-label">Capacité</span><span class="stat-value">' +
+      (m.capMin === m.capMax ? fmtInt(m.capMin) + ' kg' : fmtInt(m.capMin) + '–' + fmtInt(m.capMax) + ' kg') + '</span></div>';
+    html += '<div class="stat"><span class="stat-label">Levée</span><span class="stat-value">' +
+      (m.h3Min != null ? fmtInt(m.h3Min) + '–' + fmtInt(m.h3Max) + ' mm' : '—') + '</span></div>';
+    html += '<div class="stat"><span class="stat-label">Configs</span><span class="stat-value">' + m.nbConfigs + '</span></div>';
+    html += '</div>';
+    card.innerHTML = html;
+    return card;
+  }
+
+  function render() {
+    buildBrandRow();
+
+    var filtered = allModels.filter(modelPassesFilters);
+    var bestFitSection = document.getElementById('bestFitSection');
+    var bestFitGrid = document.getElementById('bestFitGrid');
+    var modelsGrid = document.getElementById('modelsGrid');
+    var smartBanner = document.getElementById('smartSearchBanner');
+    var smartBannerText = document.getElementById('smartSearchBannerText');
+    var resetBtn = document.getElementById('btnReset');
+
+    bestFitGrid.innerHTML = '';
+    modelsGrid.innerHTML = '';
+
+    var bestFitModels = [];
+    var normalModels = [];
+
+    if (state.smartSearch) {
+      smartBanner.hidden = false;
+      smartBannerText.textContent = 'Recherche intelligente active — ' + smartSearchCriteriaLabel(state.smartSearch.criteria) +
+        ' · ' + state.smartSearch.count + ' modèle(s) trouvé(s)';
+      filtered = filtered.filter(function(m) { return state.smartSearch.matchedKeys[m.marque + '|' + m.modele]; });
+      filtered.forEach(function(m) {
+        var key = m.marque + '|' + m.modele;
+        if (state.smartSearch.bestFitKeys[key]) bestFitModels.push(m);
+        else normalModels.push(m);
+      });
+      // Conserve l'ordre de tri (capacité puis rayon de braquage croissants) pour les meilleurs fits
+      var order = Object.keys(state.smartSearch.bestFitKeys);
+      bestFitModels.sort(function(a, b) {
+        return order.indexOf(a.marque + '|' + a.modele) - order.indexOf(b.marque + '|' + b.modele);
+      });
+    } else {
+      smartBanner.hidden = true;
+      normalModels = filtered;
+    }
+
+    var isFiltered = state.marque !== 'all' || state.type !== 'all' || state.capMin != null ||
+      state.capMax != null || state.hMin != null || state.hMax != null || !!state.smartSearch;
+    resetBtn.hidden = !isFiltered;
+
+    var total = bestFitModels.length + normalModels.length;
+    document.getElementById('resultsCount').textContent = total + ' modèle' + (total !== 1 ? 's' : '') + ' affiché' + (total !== 1 ? 's' : '');
+
+    if (bestFitModels.length) {
+      bestFitSection.hidden = false;
+      bestFitModels.forEach(function(m) { bestFitGrid.appendChild(buildCard(m, true)); });
+    } else {
+      bestFitSection.hidden = true;
+    }
+
+    document.getElementById('emptyState').hidden = total > 0;
+    normalModels.forEach(function(m) { modelsGrid.appendChild(buildCard(m, false)); });
+  }
+
+  function resetAll() {
+    state = { marque: 'all', type: 'all', capMin: null, capMax: null, hMin: null, hMax: null, smartSearch: null };
+    document.getElementById('filterType').value = 'all';
+    document.getElementById('filterCapMin').value = '';
+    document.getElementById('filterCapMax').value = '';
+    document.getElementById('filterHMin').value = '';
+    document.getElementById('filterHMax').value = '';
+    render();
+  }
+
+  /* ── Modal détail ─────────────────────────────────────────────────── */
+  function openDetail(m) {
+    var content = document.getElementById('detailContent');
+    var html = '';
+    html += '<h2>' + esc(m.marque) + ' ' + esc(m.modele) + '</h2>';
+    html += '<div class="modal-sub">' + esc(m.type) + (m.sousType ? ' · ' + esc(m.sousType) : '') + '</div>';
+
+    html += '<div class="detail-info-grid">';
+    html += infoField('Énergie', m.energie);
+    html += infoField('Type de batterie', m.typeBatterie);
+    html += infoField('Nombre de roues', m.nbRoues);
+    html += infoField('Fiche source', m.ficheSource);
+    html += infoField('Date de mise à jour', m.dateMaj);
+    html += infoField('Configurations de mât', m.nbConfigs);
+    html += '</div>';
+
+    html += '<div class="config-table-wrap"><table><thead><tr>' +
+      '<th>Type de mât</th><th>Réf. option</th><th>Sous-type</th><th>h1</th><th>h3</th><th>Pose max</th>' +
+      '<th>Lev. libre s/dos</th><th>Lev. libre av/dos</th><th>Mât dépl. s/dos</th><th>Mât dépl. av/dos</th>' +
+      '<th>Cap. nominale</th><th>Cap. rés. 500</th><th>Cap. rés. 600</th><th>Wa</th><th>Passage mini</th><th>H6</th><th>Remarques</th>' +
+      '</tr></thead><tbody>';
+
+    var sortedConfigs = m.configs.slice().sort(function(a, b) {
+      var ah = typeof a.h3 === 'number' ? a.h3 : 0;
+      var bh = typeof b.h3 === 'number' ? b.h3 : 0;
+      return ah - bh;
+    });
+
+    sortedConfigs.forEach(function(c) {
+      html += '<tr>';
+      html += '<td>' + fmtCell(c.typeMat) + '</td>';
+      html += '<td>' + fmtCell(c.refMat) + '</td>';
+      html += '<td>' + fmtCell(c.sousType) + '</td>';
+      html += '<td>' + (typeof c.h1 === 'number' ? fmtInt(c.h1) : fmtCell(c.h1)) + '</td>';
+      html += '<td>' + (typeof c.h3 === 'number' ? fmtInt(c.h3) : fmtCell(c.h3)) + '</td>';
+      html += '<td>' + (typeof c.hauteurPoseMax === 'number' ? fmtInt(c.hauteurPoseMax) : fmtCell(c.hauteurPoseMax)) + '</td>';
+      html += '<td>' + (typeof c.llibreSansDos === 'number' ? fmtInt(c.llibreSansDos) : fmtCell(c.llibreSansDos)) + '</td>';
+      html += '<td>' + (typeof c.llibreAvecDos === 'number' ? fmtInt(c.llibreAvecDos) : fmtCell(c.llibreAvecDos)) + '</td>';
+      html += '<td>' + (typeof c.matDeployeSansDos === 'number' ? fmtInt(c.matDeployeSansDos) : fmtCell(c.matDeployeSansDos)) + '</td>';
+      html += '<td>' + (typeof c.matDeployeAvecDos === 'number' ? fmtInt(c.matDeployeAvecDos) : fmtCell(c.matDeployeAvecDos)) + '</td>';
+      html += '<td>' + (typeof c.capaciteNominale === 'number' ? fmtInt(c.capaciteNominale) : fmtCell(c.capaciteNominale)) + '</td>';
+      html += '<td>' + (typeof c.capaciteRes500 === 'number' ? fmtInt(c.capaciteRes500) : fmtCell(c.capaciteRes500)) + '</td>';
+      html += '<td>' + (typeof c.capaciteRes600 === 'number' ? fmtInt(c.capaciteRes600) : fmtCell(c.capaciteRes600)) + '</td>';
+      html += '<td>' + (typeof c.rayonBraquage === 'number' ? fmtInt(c.rayonBraquage) : fmtCell(c.rayonBraquage)) + '</td>';
+      html += '<td>' + (typeof c.hauteurPassageMini === 'number' ? fmtInt(c.hauteurPassageMini) : fmtCell(c.hauteurPassageMini)) + '</td>';
+      html += '<td>' + (typeof c.h6 === 'number' ? fmtInt(c.h6) : fmtCell(c.h6)) + '</td>';
+      html += '<td style="white-space:normal; min-width:200px;">' + fmtCell(c.remarques) + '</td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    content.innerHTML = html;
+    document.getElementById('detailModal').hidden = false;
+  }
+
+  function infoField(label, value) {
+    return '<div><div class="info-label">' + esc(label) + '</div><div class="info-value">' + fmtCell(value) + '</div></div>';
+  }
+
+  /* ── Modal recherche intelligente ─────────────────────────────────── */
+  function openSmartModal() {
+    document.getElementById('smartModal').hidden = false;
+  }
+  function closeSmartModal() {
+    document.getElementById('smartModal').hidden = true;
+  }
+  function submitSmartSearch() {
+    function numOrNull(id) {
+      var v = document.getElementById(id).value;
+      return v === '' ? null : Number(v);
+    }
+    var criteria = {
+      poids: numOrNull('sPoids'),
+      hauteurPose: numOrNull('sHauteurPose'),
+      largeurAllee: numOrNull('sLargeurAllee'),
+      hauteurPassage: numOrNull('sHauteurPassage'),
+      cdg: Number(document.getElementById('sCdg').value)
+    };
+    runSmartSearch(criteria);
+    closeSmartModal();
+    render();
+  }
+
+  /* ── Initialisation ────────────────────────────────────────────────── */
+  async function initPage() {
+    var session = await requireSession('../pages/login.html');
+    if (!session) return;
+    var profile = await loadCurrentProfile();
+    if (!profile) { window.location.href = '../pages/login.html'; return; }
+
+    renderNavAccount('navAccount', '../pages/');
+    if (profile.is_admin) document.getElementById('backLink').href = '../pages/admin.html';
+
+    var params = new URLSearchParams(window.location.search);
+    var toolId = params.get('tool');
+    if (!toolId) { document.getElementById('notFoundStep').hidden = false; return; }
+
+    var res = await supabaseClient.from('tools').select('*').eq('id', toolId).single();
+    if (!res.data) { document.getElementById('notFoundStep').hidden = false; return; }
+
+    document.getElementById('toolTitle').textContent = res.data.name;
+    document.getElementById('toolDesc').textContent = res.data.description || '';
+
+    document.getElementById('loadingState').hidden = false;
+    try {
+      await loadCatalogData();
+    } catch (e) {
+      console.error('Erreur de chargement du catalogue :', e);
+      document.getElementById('loadingState').textContent = "Erreur lors du chargement du catalogue.";
+      return;
+    }
+    document.getElementById('loadingState').hidden = true;
+    document.getElementById('mainContent').hidden = false;
+
+    buildTypeFilter();
+    buildRangeSelects();
+    render();
+
+    document.getElementById('btnReset').addEventListener('click', resetAll);
+    document.getElementById('btnSmartSearch').addEventListener('click', openSmartModal);
+    document.getElementById('smartClose').addEventListener('click', closeSmartModal);
+    document.getElementById('btnSmartCancel').addEventListener('click', closeSmartModal);
+    document.getElementById('btnSmartSubmit').addEventListener('click', submitSmartSearch);
+    document.getElementById('btnClearSmartSearch').addEventListener('click', function() { state.smartSearch = null; render(); });
+    document.getElementById('detailClose').addEventListener('click', function() { document.getElementById('detailModal').hidden = true; });
+    document.getElementById('detailModal').addEventListener('click', function(e) { if (e.target === this) this.hidden = true; });
+    document.getElementById('smartModal').addEventListener('click', function(e) { if (e.target === this) closeSmartModal(); });
+  }
+
+  document.addEventListener('DOMContentLoaded', initPage);
+})();
+</script>
+</body>
+</html>
