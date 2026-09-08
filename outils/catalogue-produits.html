@@ -204,7 +204,10 @@
     </div>
 
     <div id="smartSearchBanner" class="status warn smart-banner" hidden>
-      <span id="smartSearchBannerText"></span>
+      <div>
+        <div id="smartSearchBannerText"></div>
+        <div id="smartSearchCdgWarning" style="margin-top:6px; font-size:0.82rem; font-style:italic;" hidden></div>
+      </div>
       <button id="btnClearSmartSearch" class="secondary" style="flex-shrink:0;">Quitter la recherche intelligente</button>
     </div>
 
@@ -638,6 +641,14 @@
       smartBanner.hidden = false;
       smartBannerText.textContent = 'Recherche intelligente active — ' + smartSearchCriteriaLabel(state.smartSearch.criteria) +
         ' · ' + filtered.length + ' modèle(s) trouvé(s)' + (filtered.length !== state.smartSearch.count ? ' (sur ' + state.smartSearch.count + ' au total, filtres actifs)' : '');
+
+      var cdgWarning = document.getElementById('smartSearchCdgWarning');
+      if (state.smartSearch.criteria.poids != null && state.smartSearch.criteria.cdg === 600) {
+        cdgWarning.hidden = false;
+        cdgWarning.textContent = "⚠️ Les capacités résiduelles à 600 mm ne sont pas systématiquement renseignées par les constructeurs. Si aucun modèle ne correspond (ou pour confirmer un résultat), vérifiez directement la fiche technique constructeur — un modèle compatible peut exister sans que la donnée soit présente ici.";
+      } else {
+        cdgWarning.hidden = true;
+      }
     } else {
       smartBanner.hidden = true;
       normalModels = filtered;
@@ -685,10 +696,8 @@
     { key: 'llibreAvecDos', label: 'Lev. libre av/dos', fmt: fmtNumCell },
     { key: 'matDeployeSansDos', label: 'Mât dépl. s/dos', fmt: fmtNumCell },
     { key: 'matDeployeAvecDos', label: 'Mât dépl. av/dos', fmt: fmtNumCell },
-    { key: 'capaciteNominale', label: 'Cap. nominale', fmt: fmtNumCell },
     { key: 'capaciteRes500', label: 'Cap. rés. 500', fmt: fmtNumCell },
     { key: 'capaciteRes600', label: 'Cap. rés. 600', fmt: fmtNumCell },
-    { key: 'rayonBraquage', label: 'Wa', fmt: fmtNumCell },
     { key: 'hauteurPassageMini', label: 'Passage mini', fmt: fmtNumCell }
   ];
 
@@ -723,12 +732,16 @@
     }
 
     html += '<div class="detail-info-grid">';
+    html += infoField('Capacité nominale', m.capMin === m.capMax ? fmtInt(m.capMin) + ' kg' : fmtInt(m.capMin) + '–' + fmtInt(m.capMax) + ' kg');
+    html += infoField('Rayon de braquage (Wa)', typeof m.waMin === 'number' ? fmtInt(m.waMin) + ' mm' : m.waMin);
     html += infoField('Énergie', m.energie);
     html += infoField('Nombre de roues', m.nbRoues);
     html += infoField('Hauteur cabine (H6)', typeof m.h6 === 'number' ? fmtInt(m.h6) + ' mm' : m.h6);
     html += '</div>';
 
     html += '<div class="detail-actions" id="linkActionsRow"></div>';
+
+    html += '<p class="hint" style="margin:0 0 16px; font-style:italic;">⚠️ Ces données sont fournies à titre indicatif, vérifiez toujours les valeurs directement sur la fiche technique du constructeur.</p>';
 
     var visibleCols = CONFIG_COLUMNS.filter(function(col) { return columnHasData(m.configs, col.key); });
 
