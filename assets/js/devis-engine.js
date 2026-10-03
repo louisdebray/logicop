@@ -985,7 +985,11 @@ window.DevisEngine = (function () {
    *  ne rende le buffer inutilisable pour le second. */
   async function parseEpPdfFile(arrayBuffer) {
     const configItems = parseEpConfigRows(await getPdfRowItems(arrayBuffer.slice(0)));
-    if (configItems.length) return { items: configItems };
+    if (configItems.length) {
+      // Le nouveau devis ne contient pas le transport : ligne à compléter à la main (mise en évidence dans l'Excel).
+      configItems.push({ excluded: false, desc: 'Transport', ht: '', manual: true });
+      return { items: configItems };
+    }
     return parseEpPdf(await getPdfLines(arrayBuffer.slice(0)));
   }
 
@@ -1449,6 +1453,17 @@ window.DevisEngine = (function () {
           ws.getCell(cellRef).value = raw;
         }
       });
+      // Ligne à compléter à la main : libellé en rouge gras, cellule de prix surlignée en jaune.
+      // ExcelJS partage un même objet de style entre cellules identiques : on affecte un style
+      // copié (jamais `cell.font = …` ni mutation en place) pour ne pas colorer les autres lignes.
+      if (item.manual) {
+        opts.destCols.forEach((f) => {
+          const cell = ws.getCell(`${f.col}${r}`);
+          const base = JSON.parse(JSON.stringify(cell.style || {}));
+          if (f.key === 'desc') cell.style = { ...base, font: { ...(base.font || {}), bold: true, color: { argb: 'FFFF0000' } } };
+          if (f.key === 'ht') cell.style = { ...base, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } } };
+        });
+      }
     });
 
     // Valeurs globales du devis (ex : une remise unique) : une seule cellule, jamais répétée.
