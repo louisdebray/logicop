@@ -893,6 +893,102 @@ window.DevisEngine = (function () {
     return { items };
   }
 
+  // ── Extraction EP, nouveau format ("Devis chariot" avec section CONFIGURATION) ──
+  // La section CONFIGURATION est un tableau à 3 colonnes (libellé | valeur | prix ou "Inclus"),
+  // chaque cellule étant un item de texte distinct dans le PDF. On lit donc la géométrie plutôt
+  // que le texte aplati par getPdfLines : dans une ligne aplatie, une valeur finissant par un
+  // nombre ("Largeur 570") suivie d'un prix ("120 €") est indiscernable d'un montant à milliers.
+  const EP_PRICE_MIN_X = 350; // la colonne prix est alignée à droite ; libellés et valeurs commencent bien avant
+
+  /** Rangées de texte positionnées (une par ligne visuelle), toutes pages, dans l'ordre de lecture. */
+  async function getPdfRowItems(arrayBuffer) {
+    const pdfjsLib = await ensurePdfjs();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const allRows = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const rows = [];
+      content.items
+        .filter((it) => it.str && it.str.trim())
+        .forEach((it) => {
+          const item = { str: it.str.trim(), x: it.transform[4], y: it.transform[5] };
+          let row = rows.find((r) => Math.abs(r.y - item.y) < 2);
+          if (!row) { row = { page: p, y: item.y, items: [] }; rows.push(row); }
+          row.items.push(item);
+        });
+      rows.sort((a, b) => b.y - a.y);
+      rows.forEach((r) => r.items.sort((a, b) => a.x - b.x));
+      allRows.push(...rows);
+    }
+    return allRows;
+  }
+
+  function epPriceValue(str) {
+    return parseFrenchNumber(str.replace(/[  ]/g, ' ')) || '';
+  }
+
+  /** Une rangée logique = un item "prix" (colonne de droite) + tout le texte le plus proche
+   *  verticalement, ce qui rattache aussi les lignes de continuation d'une cellule qui retourne
+   *  à la ligne. "Inclus" (ou toute valeur sans montant) donne un prix vide. */
+  function parseEpConfigBlock(blockRows) {
+    const prices = [];
+    const texts = [];
+    blockRows.forEach((r) => {
+      r.items.forEach((it) => {
+        if (it.x >= EP_PRICE_MIN_X) prices.push({ page: r.page, y: r.y, str: it.str, parts: [] });
+        else texts.push({ page: r.page, y: r.y, x: it.x, str: it.str });
+      });
+    });
+    texts.forEach((t) => {
+      let best = null, bestDist = Infinity;
+      prices.forEach((p) => {
+        if (p.page !== t.page) return;
+        const d = Math.abs(p.y - t.y);
+        if (d < bestDist) { bestDist = d; best = p; }
+      });
+      if (best) best.parts.push(t);
+    });
+
+    const items = [];
+    prices.forEach((p) => {
+      p.parts.sort((a, b) => b.y - a.y || a.x - b.x);
+      const text = p.parts.map((t) => t.str).join(' ').replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      // Comme dans l'ancien format : le châssis ne garde que sa référence, les options "libellé valeur".
+      items.push({ excluded: false, desc: text.replace(/^Ch[aâ]ssis\s+/i, ''), ht: epPriceValue(p.str) });
+    });
+    return items;
+  }
+
+  function parseEpConfigRows(rows) {
+    const rowText = (r) => r.items.map((i) => i.str).join(' ').replace(/\s+/g, ' ').trim();
+    const items = [];
+    let i = 0;
+    while (i < rows.length) {
+      if (!/^CONFIGURATION$/i.test(rowText(rows[i]))) { i++; continue; }
+      let j = i + 1;
+      const block = [];
+      while (j < rows.length && !/^Total\s+hors\s+taxes/i.test(rowText(rows[j]))) {
+        // Pied de page ("… · 2026-10-03   1 / 2") quand la configuration s'étend sur deux pages.
+        if (!rows[j].items.some((it) => /^\d+\s*\/\s*\d+$/.test(it.str))) block.push(rows[j]);
+        j++;
+      }
+      items.push(...parseEpConfigBlock(block));
+      i = j + 1;
+    }
+    return items;
+  }
+
+  /** Point d'entrée EP : nouveau format (section CONFIGURATION) si présent, sinon ancien format
+   *  ("Chassis …" / "Option : …"). Les copies de buffer évitent qu'un premier passage de pdf.js
+   *  ne rende le buffer inutilisable pour le second. */
+  async function parseEpPdfFile(arrayBuffer) {
+    const configItems = parseEpConfigRows(await getPdfRowItems(arrayBuffer.slice(0)));
+    if (configItems.length) return { items: configItems };
+    return parseEpPdf(await getPdfLines(arrayBuffer.slice(0)));
+  }
+
   // ── Extraction PDF : moteur de règles ──────────────────────────────────
   const EXCLUDE_RE = /\b(total|tva|sous[\s-]?total|net\s*[àa]\s*payer|acompte|escompte|frais\s+de\s+port|prix\s+sp[ée]cial|prix\s+unitaire|prix\s+net|prix\s+brut)\b/i;
   // Groupé + décimales (22 009,20 / 1.234,56) | Groupé entier (18 341) | Décimal simple (650,00) | Entier (500)
@@ -1504,7 +1600,7 @@ window.DevisEngine = (function () {
     FIELDS, ROLE_OPTIONS,
     colToIndex, parseFrenchNumber, escapeRegex,
     strictKeywordMatch, looseKeywordMatch, keywordMatches,
-    getPdfLines, extractExcel, parseCesabExcel, parseEpPdf, parseBydPdf,
+    getPdfLines, extractExcel, parseCesabExcel, parseEpPdf, parseEpPdfFile, parseBydPdf,
     findNumberOnLine, stripKeyword, findGenericPrice,
     applyTableRules, applyFicheRules, applyMultiFicheRules, applyPdfRules, usedFieldKeys,
     generateExcel, generateExcelMulti, downloadBuffer,

@@ -192,9 +192,8 @@
         state.items = result.items;
       } else if (ext === 'pdf' && cfg.sourceType === 'ep') {
         const buf = await file.arrayBuffer();
-        const lines = await Engine.getPdfLines(buf);
         state.fields = Engine.FIELDS.filter((f) => f.key === 'desc' || f.key === 'ht');
-        const result = Engine.parseEpPdf(lines);
+        const result = await Engine.parseEpPdfFile(buf);
         if (!result || !result.items.length) { showExtractStatus('err', "Aucune ligne détectée — vérifiez qu'il s'agit bien d'un devis EP."); return; }
         state.items = result.items;
       } else if (ext === 'pdf') {

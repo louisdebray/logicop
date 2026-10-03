@@ -483,7 +483,7 @@
       state.sourceKind = 'ep';
       state.sourceFile = file;
       const buf = await file.arrayBuffer();
-      state.pdfLines = await Engine.getPdfLines(buf);
+      state.pdfLines = await Engine.getPdfLines(buf.slice(0));
       pdfTrainPanel.hidden = true;
       excelOptions.hidden = true;
       cesabPanel.hidden = true;
@@ -494,7 +494,7 @@
         if (box) box.checked = (f.key === 'desc' || f.key === 'ht');
       });
 
-      const result = Engine.parseEpPdf(state.pdfLines);
+      const result = await Engine.parseEpPdfFile(buf);
       if (!result || !result.items.length) {
         showStatus('err', "Aucune ligne détectée — vérifiez qu'il s'agit bien d'un devis EP.");
         state.items = [];
