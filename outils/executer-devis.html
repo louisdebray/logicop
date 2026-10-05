@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logicop</title>
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+  <nav>
+    <span id="navAccount"></span>
+  </nav>
+</div>
+
+<main>
+  <p style="margin-bottom:8px;"><a href="../pages/dashboard.html">← Mes outils</a></p>
+  <div class="hero" style="padding-top:16px; text-align:left;">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <img id="toolBrandLogo" alt="" style="height:40px; max-width:140px; object-fit:contain; object-position:left;" hidden>
+      <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Outil</h1>
+    </div>
+    <p id="toolDesc" style="margin:8px 0 0;"></p>
+  </div>
+
+  <div id="bydPdfHint" hidden style="margin:12px 0; padding:12px 16px; border-radius:8px; background:#fce4ec; border:1px solid #e53935; color:#c62828; font-weight:600;">
+    📄 Enregistrez votre devis BYD au format PDF pour utiliser le convertisseur
+  </div>
+  <div class="privacy-note">
+    🔒 Votre devis est traité directement dans votre navigateur : il n'est jamais envoyé à Logicop.
+  </div>
+
+  <div class="step" id="notFoundStep" hidden>
+    <p class="hint">Cet outil est introuvable ou ne vous a pas été attribué. Retournez à
+       <a href="../pages/dashboard.html">vos outils</a>.</p>
+  </div>
+
+  <div id="mainSteps" class="tool-layout" hidden>
+    <div class="tool-layout-main">
+      <div class="step">
+        <h2><span class="num">1</span> Importer votre devis</h2>
+        <div class="row">
+          <div class="field grow">
+            <label for="sourceFile">Fichier devis</label>
+            <input type="file" id="sourceFile" accept=".pdf,.xlsx,.xls,.xlsm,.csv">
+          </div>
+          <div class="field" id="passwordField" style="display:none;">
+            <label for="filePassword">Mot de passe du fichier</label>
+            <input type="text" id="filePassword" value="bydforklift">
+          </div>
+        </div>
+        <div class="status" id="extractStatus"></div>
+
+        <div id="bydDoubtPanel" hidden style="margin:12px 0; padding:12px 16px; border-radius:8px; background:#fff3e0; border:1px solid #ffb74d;">
+          <p style="margin:0 0 8px; font-weight:600; color:#e65100;">Options à sélectionner</p>
+          <p style="margin:0 0 10px; font-size:0.85rem; color:#bf360c;">Cochez les options qui correspondent au devis BYD. Le modèle et le prix final sont déjà remplis automatiquement.</p>
+          <div id="bydDoubtList" style="display:flex; flex-direction:column; gap:4px;"></div>
+        </div>
+
+        <table id="itemsTable" hidden>
+          <thead><tr id="itemsHeadRow"></tr></thead>
+          <tbody id="itemsBody"></tbody>
+        </table>
+        <div class="table-actions" id="itemsActions" hidden>
+          <button class="secondary" id="btnAddRow">+ Ajouter une ligne</button>
+          <span style="color:var(--text-dim); font-size:0.85rem; align-self:center;" id="itemsCount"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-layout-side">
+      <div class="step">
+        <h2><span class="num">2</span> Générer votre fichier</h2>
+        <div class="field" style="margin-bottom:18px;">
+          <label for="outFileName">Nom du fichier</label>
+          <input type="text" id="outFileName" value="Feuille de calcul.xlsx">
+        </div>
+        <div class="row">
+          <button id="btnGenerate" style="width:100%; justify-content:center;">Générer &amp; télécharger</button>
+        </div>
+        <div class="status" id="genStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Logicop</footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module">
+  import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs';
+  window.pdfjsLib = pdfjsLib;
+</script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../assets/js/supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.js"></script>
+<script src="../assets/js/byd-decrypt.js"></script>
+<script src="../assets/js/devis-engine.js"></script>
+<script src="../assets/js/executer-devis.js"></script>
+</body>
+</html>

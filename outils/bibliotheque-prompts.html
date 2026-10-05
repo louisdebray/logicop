@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bibliothèque de prompt — Logicop</title>
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+<style>
+  /* ── Bibliothèque : cartes ─────────────────────────────────── */
+  .library-count { color: var(--text-dim); font-size: 0.88rem; margin: 0 0 14px; }
+  .prompt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
+  .prompt-card {
+    display: flex; flex-direction: column; gap: 10px; padding: 22px;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius);
+    color: var(--text); text-decoration: none;
+    transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+  }
+  .prompt-card:hover {
+    border-color: var(--accent); transform: translateY(-3px);
+    box-shadow: 0 14px 28px rgba(16,17,20,0.08); text-decoration: none;
+  }
+  .prompt-card:focus-visible { outline: 3px solid rgba(181,80,42,0.35); outline-offset: 2px; }
+  .prompt-card .icon { font-size: 1.7rem; line-height: 1; }
+  .prompt-card h3 { margin: 0; font-size: 1.08rem; font-family: var(--font-body); font-weight: 600; text-transform: none; }
+  .prompt-card p { margin: 0; color: var(--text-dim); font-size: 0.92rem; flex-grow: 1; }
+  .prompt-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag {
+    font-family: var(--font-mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: .05em;
+    padding: 2px 9px; border-radius: 20px; border: 1.5px solid var(--panel-border); color: var(--text-dim);
+  }
+  .prompt-open { font-weight: 600; font-size: 0.86rem; color: var(--accent); margin-top: 4px; }
+  .prompt-open span { display: inline-block; transition: transform .15s ease; }
+  .prompt-card:hover .prompt-open span { transform: translateX(4px); }
+
+  /* ── Formulaire ────────────────────────────────────────────── */
+  .back-to-library { display: inline-block; margin-bottom: 10px; font-size: 0.9rem; }
+  .view-head { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+  .view-head .icon { font-size: 2rem; line-height: 1; }
+  .view-head h2 { margin: 0; font-size: 1.7rem; }
+  .view-head p { margin: 2px 0 0; color: var(--text-dim); font-size: 0.92rem; }
+  .step h2 .num.done { background: var(--ok); }
+
+  /* Choix du format (illustré) */
+  .fmt-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 6px; }
+  .fmt-tile { position: relative; display: block; cursor: pointer; }
+  .fmt-tile input {
+    position: absolute; width: 1px; height: 1px; margin: 0; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .fmt-body {
+    position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    height: 100%; padding: 16px 10px 14px; text-align: center;
+    background: var(--panel); border: 1.5px solid var(--panel-border); border-radius: var(--radius);
+    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .15s ease;
+  }
+  .fmt-tile:hover .fmt-body { border-color: var(--accent); transform: translateY(-2px); }
+  .fmt-stage { height: 112px; display: flex; align-items: center; justify-content: center; }
+  .fmt-shape {
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--graphite); border-radius: 6px;
+    background: linear-gradient(145deg, rgba(16,17,20,0.04), rgba(16,17,20,0.13));
+    color: var(--graphite); font-family: var(--font-mono); font-weight: 600; font-size: 0.8rem;
+    transition: border-color .15s ease, background .15s ease, color .15s ease;
+  }
+  .fmt-name { font-weight: 700; font-size: 0.95rem; }
+  .fmt-use { font-size: 0.76rem; color: var(--text-dim); line-height: 1.35; }
+  .fmt-check {
+    position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: 0.7rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: scale(.6); transition: opacity .15s ease, transform .15s ease;
+  }
+  .fmt-tile input:checked + .fmt-body {
+    border-color: var(--accent); background: rgba(181,80,42,0.06); box-shadow: 0 0 0 3px rgba(181,80,42,0.14);
+  }
+  .fmt-tile input:checked + .fmt-body .fmt-shape {
+    border-color: var(--accent); color: var(--accent-dark);
+    background: linear-gradient(145deg, rgba(181,80,42,0.10), rgba(181,80,42,0.24));
+  }
+  .fmt-tile input:checked + .fmt-body .fmt-check { opacity: 1; transform: scale(1); }
+  .fmt-tile input:focus-visible + .fmt-body { outline: 3px solid rgba(181,80,42,0.35); outline-offset: 2px; }
+
+  /* Durée */
+  .unit-input { position: relative; max-width: 240px; }
+  .unit-input input { width: 100%; padding-right: 88px; }
+  .unit-input .unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-dim); font-size: 0.85rem; pointer-events: none; }
+
+  /* Contenu */
+  .pl-textarea {
+    width: 100%; min-height: 190px; resize: vertical; padding: 10px 12px;
+    background: var(--input-bg); border: 1px solid var(--panel-border); border-radius: 6px;
+    color: var(--text); font-size: 0.92rem; font-family: var(--font-body); line-height: 1.5;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .pl-textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(181,80,42,0.15); }
+
+  /* Génération + résultat */
+  .gen-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .gen-row .gen-hint { color: var(--text-dim); font-size: 0.85rem; }
+  .prompt-output {
+    margin: 0 0 14px; padding: 18px 20px; max-height: 460px; overflow: auto;
+    background: var(--ink); color: var(--header-text); border-radius: var(--radius);
+    font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.65;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .copy-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .copy-state { color: var(--ok); font-size: 0.88rem; font-weight: 600; }
+
+  @media (max-width: 720px) {
+    .fmt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .view-head h2 { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+  <nav>
+    <span id="navAccount"></span>
+  </nav>
+</div>
+
+<main>
+  <p style="margin-bottom:8px;"><a href="../pages/dashboard.html" id="backLink">← Mes outils</a></p>
+  <div class="hero" style="padding-top:10px; text-align:left;">
+    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Bibliothèque de prompt</h1>
+    <p id="toolDesc" style="margin:4px 0 0;"></p>
+  </div>
+
+  <div class="step" id="notFoundStep" hidden>
+    <p class="hint">Cet outil est introuvable ou ne vous a pas été attribué. Retournez à
+       <a href="../pages/dashboard.html">vos outils</a>.</p>
+  </div>
+
+  <div id="mainContent" hidden>
+
+    <!-- Vue 1 : bibliothèque -->
+    <section id="libraryView">
+      <p class="library-count" id="libraryCount"></p>
+      <div class="prompt-grid" id="promptGrid"></div>
+    </section>
+
+    <!-- Vue 2 : formulaire d'un prompt -->
+    <section id="formView" hidden>
+      <a class="back-to-library" href="#">← Tous les prompts</a>
+      <div class="view-head">
+        <div class="icon" id="formIcon"></div>
+        <div>
+          <h2 id="formTitle"></h2>
+          <p id="formDesc"></p>
+        </div>
+      </div>
+
+      <div id="fieldsHost"></div>
+
+      <div class="gen-row">
+        <button id="btnGenerate" disabled aria-describedby="genHint">Générer le prompt</button>
+        <span class="gen-hint" id="genHint"></span>
+      </div>
+
+      <div class="step" id="resultStep" hidden>
+        <h2><span class="num">✓</span> Votre prompt</h2>
+        <pre class="prompt-output" id="promptOutput" tabindex="0"></pre>
+        <div class="copy-row">
+          <button id="btnCopy">Copier le prompt</button>
+          <span class="copy-state" id="copyState" role="status" aria-live="polite"></span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>Logicop</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../assets/js/supabase-config.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ── Catalogue de prompts ──────────────────────────────────────────
+     Pour ajouter un prompt : ajouter un objet à cette liste (id unique, textes, champs,
+     modèle). Dans `template`, {{cle}} est remplacé par la valeur du champ du même nom.
+     Types de champ gérés : 'format' (choix illustré), 'number', 'textarea'. */
+  const PROMPTS = [
+    {
+      id: 'video-motion-design',
+      icon: '🎬',
+      title: 'Génération de vidéo motion design',
+      description: "Prépare le prompt de création d'une vidéo motion design à partir du contenu d'une publication.",
+      tags: ['Vidéo', 'Motion design'],
+      fields: [
+        {
+          key: 'format', type: 'format', label: 'Format',
+          hint: 'Choisissez le format de la vidéo.',
+          options: [
+            { value: '16:9', name: 'Paysage', use: 'Écran large, YouTube, site web', w: 100, h: 56 },
+            { value: '9:16', name: 'Vertical', use: 'Reels, Stories, TikTok', w: 56, h: 100 },
+            { value: '1:1', name: 'Carré', use: 'Publication en feed', w: 80, h: 80 },
+            { value: '4:5', name: 'Portrait', use: 'Publication en feed', w: 72, h: 90 }
+          ]
+        },
+        {
+          key: 'duree', type: 'number', label: 'Durée souhaitée',
+          hint: 'Durée approximative de la vidéo. Ceci donne un ordre de grandeur, mais ne garantit pas la durée finale de la vidéo.',
+          unit: 'secondes', placeholder: 'ex : 30',
+          toPrompt: (raw) => { const n = Math.round(parseFloat(raw)); return n + (n > 1 ? ' secondes' : ' seconde'); }
+        },
+        {
+          key: 'contenu', type: 'textarea', label: 'Contenu de la publication',
+          hint: 'Collez ou rédigez le contenu de la publication à transformer en vidéo.',
+          placeholder: 'Texte de la publication…'
+        }
+      ],
+      template:
+`/bm-motion-design
+
+FORMAT : {{format}}
+DURÉE VISÉE : {{duree}}
+CONTENU DE LA PUBLICATION :
+{{contenu}}
+
+————————————————————————————————————
+CONSIGNES FIXES (ne pas modifier)
+
+1. Utilise le skill bm-motion-design et suis toutes ses étapes : brief, script en tableau à faire valider, composition, contrôle visuel (--stills), rendu MP4.
+
+2. Construis la vidéo à partir du contenu de la publication ci-dessus : extrais le message principal, découpe-le en scènes courtes (une idée par scène) et crée des scènes sur mesure quand le sujet s'y prête. N'invente aucun chiffre, tarif, date ou avis client.
+
+3. Rythme : ne pas enchaîner les textes trop vite. Laisse toujours au spectateur le temps de lire confortablement chaque texte avant la transition ; en cas de doute, tout en restant dynamique, trouver le bon compromis.
+
+4. Son :
+- Bruitages synchronisés activés (--sfx)., musique
+
+5. Scène de fin obligatoire, CTA, avec le logo et les coordonnées :
+Beauce Matériel
+Tél : 02 37 25 69 57
+Rue de la Motte, 28110 Lucé
+
+6. Respecte strictement la charte graphique du skill (logo non modifié, rouge réservé à l'essentiel, Montserrat).`
+    }
+  ];
+
+  const FIELD_VALIDATORS = {
+    format: (v) => v !== '',
+    number: (v) => Number.isFinite(parseFloat(v)) && Math.round(parseFloat(v)) >= 1,
+    textarea: (v) => v.trim() !== ''
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  let current = null; // { prompt, values: {cle: valeurBrute}, nums: {cle: élément pastille} }
+
+  /* ── Bibliothèque ──────────────────────────────────────────────── */
+  function renderLibrary() {
+    $('libraryCount').textContent = PROMPTS.length + ' prompt' + (PROMPTS.length > 1 ? 's' : '') + ' disponible' + (PROMPTS.length > 1 ? 's' : '');
+    $('promptGrid').innerHTML = PROMPTS.map((p) =>
+      '<a class="prompt-card" href="#' + encodeURIComponent(p.id) + '">' +
+        '<div class="icon">' + esc(p.icon) + '</div>' +
+        '<h3>' + esc(p.title) + '</h3>' +
+        '<p>' + esc(p.description) + '</p>' +
+        '<div class="prompt-tags">' + p.tags.map((t) => '<span class="tag">' + esc(t) + '</span>').join('') + '</div>' +
+        '<div class="prompt-open">Utiliser ce prompt <span>→</span></div>' +
+      '</a>'
+    ).join('');
+  }
+
+  /* ── Formulaire ────────────────────────────────────────────────── */
+  function stepShell(index, field) {
+    const step = document.createElement('div');
+    step.className = 'step';
+    step.innerHTML = '<h2><span class="num">' + index + '</span> ' + esc(field.label) + '</h2>' +
+      '<p class="hint">' + esc(field.hint) + '</p><div class="step-body"></div>';
+    return step;
+  }
+
+  function buildFormatField(field, body, onChange) {
+    const grid = document.createElement('div');
+    grid.className = 'fmt-grid';
+    grid.setAttribute('role', 'radiogroup');
+    grid.setAttribute('aria-label', field.label);
+    grid.innerHTML = field.options.map((o) =>
+      '<label class="fmt-tile">' +
+        '<input type="radio" name="fmt_' + esc(field.key) + '" value="' + esc(o.value) + '">' +
+        '<span class="fmt-body">' +
+          '<span class="fmt-check" aria-hidden="true">✓</span>' +
+          '<span class="fmt-stage"><span class="fmt-shape" style="width:' + o.w + 'px;height:' + o.h + 'px;">' + esc(o.value) + '</span></span>' +
+          '<span class="fmt-name">' + esc(o.name) + '</span>' +
+          '<span class="fmt-use">' + esc(o.use) + '</span>' +
+        '</span>' +
+      '</label>'
+    ).join('');
+    grid.addEventListener('change', (e) => { if (e.target.checked) onChange(e.target.value); });
+    body.appendChild(grid);
+  }
+
+  function buildNumberField(field, body, onChange) {
+    const wrap = document.createElement('div');
+    wrap.className = 'unit-input';
+    wrap.innerHTML = '<input type="number" min="1" step="1" inputmode="numeric" placeholder="' + esc(field.placeholder || '') + '" aria-label="' + esc(field.label) + '">' +
+      '<span class="unit">' + esc(field.unit || '') + '</span>';
+    wrap.querySelector('input').addEventListener('input', (e) => onChange(e.target.value));
+    body.appendChild(wrap);
+  }
+
+  function buildTextareaField(field, body, onChange) {
+    const ta = document.createElement('textarea');
+    ta.className = 'pl-textarea';
+    ta.placeholder = field.placeholder || '';
+    ta.setAttribute('aria-label', field.label);
+    ta.addEventListener('input', () => onChange(ta.value));
+    body.appendChild(ta);
+  }
+
+  const FIELD_BUILDERS = { format: buildFormatField, number: buildNumberField, textarea: buildTextareaField };
+
+  function showForm(prompt) {
+    current = { prompt, values: {}, nums: {} };
+    $('formIcon').textContent = prompt.icon;
+    $('formTitle').textContent = prompt.title;
+    $('formDesc').textContent = prompt.description;
+
+    const host = $('fieldsHost');
+    host.innerHTML = '';
+    prompt.fields.forEach((field, i) => {
+      current.values[field.key] = '';
+      const step = stepShell(i + 1, field);
+      current.nums[field.key] = step.querySelector('.num');
+      FIELD_BUILDERS[field.type](field, step.querySelector('.step-body'), (raw) => {
+        current.values[field.key] = raw;
+        refresh();
+      });
+      host.appendChild(step);
+    });
+
+    $('resultStep').hidden = true;
+    $('copyState').textContent = '';
+    refresh();
+    $('libraryView').hidden = true;
+    $('formView').hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  function showLibrary() {
+    current = null;
+    $('formView').hidden = true;
+    $('libraryView').hidden = false;
+  }
+
+  function missingFields() {
+    return current.prompt.fields.filter((f) => !FIELD_VALIDATORS[f.type](current.values[f.key]));
+  }
+
+  /** Met à jour pastilles d'étape, bouton « Générer » et message d'aide ; masque un prompt devenu obsolète. */
+  function refresh() {
+    const missing = missingFields();
+    current.prompt.fields.forEach((f, i) => {
+      const done = missing.indexOf(f) < 0;
+      const num = current.nums[f.key];
+      num.classList.toggle('done', done);
+      num.textContent = done ? '✓' : String(i + 1);
+    });
+    $('btnGenerate').disabled = missing.length > 0;
+    $('genHint').textContent = missing.length
+      ? 'Il reste à renseigner : ' + missing.map((f) => f.label.toLowerCase()).join(', ') + '.'
+      : 'Tout est prêt.';
+    $('resultStep').hidden = true;
+    $('copyState').textContent = '';
+  }
+
+  /** Une seule passe sur le modèle : une valeur saisie contenant « {{x}} » n'est jamais ré-interprétée. */
+  function buildPromptText(prompt, values) {
+    const resolved = {};
+    prompt.fields.forEach((f) => {
+      const raw = values[f.key];
+      resolved[f.key] = f.toPrompt ? f.toPrompt(raw) : String(raw).replace(/\r\n?/g, '\n').trim();
+    });
+    return prompt.template.replace(/\{\{(\w+)\}\}/g, (m, key) => (key in resolved ? resolved[key] : m));
+  }
+
+  function generate() {
+    if (!current || missingFields().length) return;
+    $('promptOutput').textContent = buildPromptText(current.prompt, current.values);
+    $('copyState').textContent = '';
+    const result = $('resultStep');
+    result.hidden = false;
+    result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('btnCopy').focus({ preventScroll: true });
+  }
+
+  /* ── Copie ─────────────────────────────────────────────────────── */
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise((resolve, reject) => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      ta.remove();
+      ok ? resolve() : reject(new Error('copy failed'));
+    });
+  }
+
+  function selectOutput() {
+    const range = document.createRange();
+    range.selectNodeContents($('promptOutput'));
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  let copyTimer = null;
+  async function copyPrompt() {
+    const state = $('copyState');
+    clearTimeout(copyTimer);
+    try {
+      await copyText($('promptOutput').textContent);
+      state.style.color = '';
+      state.textContent = '✓ Prompt copié';
+      copyTimer = setTimeout(() => { state.textContent = ''; }, 2500);
+    } catch (e) {
+      selectOutput();
+      state.style.color = 'var(--danger)';
+      state.textContent = 'Copie automatique impossible : le texte est sélectionné, faites Ctrl/Cmd + C.';
+    }
+  }
+
+  /* ── Navigation (hash : #id-du-prompt) ─────────────────────────── */
+  function route() {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const prompt = PROMPTS.find((p) => p.id === id);
+    if (prompt) showForm(prompt); else showLibrary();
+  }
+
+  /* ── Initialisation ────────────────────────────────────────────── */
+  async function initPage() {
+    const session = await requireSession('../pages/login.html');
+    if (!session) return;
+    const profile = await loadCurrentProfile();
+    if (!profile) { window.location.href = '../pages/login.html'; return; }
+
+    renderNavAccount('navAccount', '../pages/');
+    if (profile.is_admin) $('backLink').href = '../pages/admin.html';
+
+    const toolId = new URLSearchParams(window.location.search).get('tool');
+    if (!toolId) { $('notFoundStep').hidden = false; return; }
+
+    const res = await supabaseClient.from('tools').select('*').eq('id', toolId).single();
+    if (!res.data) { $('notFoundStep').hidden = false; return; }
+
+    $('toolTitle').textContent = res.data.name;
+    $('toolDesc').textContent = res.data.description || '';
+
+    renderLibrary();
+    $('btnGenerate').addEventListener('click', generate);
+    $('btnCopy').addEventListener('click', copyPrompt);
+    window.addEventListener('hashchange', route);
+    $('mainContent').hidden = false;
+    route();
+  }
+
+  document.addEventListener('DOMContentLoaded', initPage);
+})();
+</script>
+</body>
+</html>
