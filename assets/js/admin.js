@@ -248,7 +248,9 @@
     const isCoefficient = appType === 'coefficient';
     const isEtiquettes = appType === 'etiquettes_blg';
     const isRapport = appType === 'rapport_controle';
-    const isEp = (tool.config || {}).sourceType === 'ep';
+    const isCatalogue = appType === 'catalogue_produits';
+    const isPrompts = appType === 'bibliotheque_prompts';
+    const isEp =(tool.config || {}).sourceType === 'ep';
     const isByd = (tool.config || {}).sourceType === 'byd';
       let editLink;
       if (isDocuments) {
@@ -257,7 +259,7 @@
         editLink.style.textDecoration = 'none';
         editLink.href = `../outils/documents.html?tool=${tool.id}`;
         editLink.textContent = 'Configurer';
-      } else if (isQrcode || isCapaciteResiduelle || isCoefficient || isEtiquettes || isRapport) {
+      } else if (isQrcode || isCapaciteResiduelle || isCoefficient || isEtiquettes || isRapport || isCatalogue || isPrompts) {
         editLink = document.createElement('button');
         editLink.className = 'secondary';
         editLink.textContent = 'Renommer';
@@ -475,6 +477,23 @@
       description: description.trim(),
       slug: slugify(name.trim()),
       config: { appType: 'catalogue_produits' },
+    });
+    if (error) { alert(error.message); return; }
+    await loadTools();
+  });
+
+  el('btnNewPrompts').addEventListener('click', async () => {
+    const name = prompt('Nom de l\'outil :', 'Bibliothèque de prompt');
+    if (name === null || !name.trim()) return;
+    const description = prompt('Description (visible par le client) :',
+      'Retrouvez et générez les prompts prêts à l\'emploi.');
+    if (description === null) return;
+
+    const { error } = await supabaseClient.from('tools').insert({
+      name: name.trim(),
+      description: description.trim(),
+      slug: slugify(name.trim()),
+      config: { appType: 'bibliotheque_prompts' },
     });
     if (error) { alert(error.message); return; }
     await loadTools();

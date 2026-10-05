@@ -82,6 +82,7 @@
       if (appType === 'etiquettes_blg') return `<div class="icon brand-icon"><img src="../assets/img/etiquettes.png" alt=""></div>`;
       if (appType === 'rapport_controle') return `<div class="icon">📋</div>`;
       if (appType === 'catalogue_produits') return `<div class="icon">🔎</div>`;
+      if (appType === 'bibliotheque_prompts') return `<div class="icon">📚</div>`;
       const brand = BRAND_LOGOS.find((b) => b.match.test(tool.name) || b.match.test(tool.description || ''));
       if (brand) return `<div class="icon brand-icon"><img src="${brand.src}" alt=""></div>`;
       return `<div class="icon">📄→📊</div>`;
@@ -96,6 +97,7 @@
       if (appType === 'etiquettes_blg') return `../outils/etiquettes-blg.html?tool=${tool.id}`;
       if (appType === 'rapport_controle') return `../outils/rapport-controle.html?tool=${tool.id}`;
       if (appType === 'catalogue_produits') return `../outils/catalogue-produits.html?tool=${tool.id}`;
+      if (appType === 'bibliotheque_prompts') return `../outils/bibliotheque-prompts.html?tool=${tool.id}`;
       return `../outils/executer-devis.html?tool=${tool.id}`;
     }
 
