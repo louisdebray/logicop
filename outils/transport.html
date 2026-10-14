@@ -8,19 +8,19 @@
 <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Aller au contenu</a>
 
-<div class="topbar">
-  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Logicop, accueil"><img class="brand-mark" src="../assets/img/bm-cube.png" alt=""><span class="brand-text"><span class="brand-name">Logicop</span><span class="by-line">Beauce Matériel</span></span></a>
   <nav>
     <span id="navAccount"></span>
   </nav>
-</div>
+</header>
 
-<main>
-  <p style="margin-bottom:8px;"><a href="../pages/dashboard.html">← Mes outils</a></p>
-  <div class="hero" style="padding-top:16px; text-align:left;">
-    <img class="brand-icon" src="../assets/img/transport.png" alt="" style="height:36px; vertical-align:middle; margin-right:8px;">
-    <h1 style="font-size:1.8rem; margin:0; display:inline; vertical-align:middle;" id="toolTitle">Prix de transport</h1>
+<main id="main">
+  <p class="crumb"><a href="../pages/dashboard.html">Mes outils</a></p>
+  <div class="hero">
+    <div class="title-row"><span class="tool-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M2 6h12v10H2z"/><path d="M14 9h4l3 3.5V16h-7"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg></span><h1 id="toolTitle">Prix de transport</h1></div>
     <p id="toolDesc" style="margin:8px 0 0;"></p>
   </div>
 
@@ -70,20 +70,20 @@
 
     <!-- Admin uniquement : configuration des tarifs -->
     <div class="step" id="adminPanel" hidden>
-      <h2><span class="num">⚙</span> Tarifs par zone</h2>
+      <h2><span class="num">3</span> Tarifs par zone</h2>
       <p class="hint" style="margin-bottom:12px;">Saisissez le prix de livraison (€ HT) pour chaque zone. Les zones sont définies par la carte Google Maps.</p>
       <table id="zonesTable">
         <thead><tr><th>Zone</th><th style="width:140px;">Transport PL (€ HT)</th><th style="width:140px;">Déplacement tech. (€ HT)</th></tr></thead>
         <tbody id="zonesBody"></tbody>
       </table>
       <div class="row" style="margin-top:12px;">
-        <button id="btnSaveConfig">💾 Enregistrer les tarifs</button>
+        <button id="btnSaveConfig">Enregistrer les tarifs</button>
       </div>
       <div class="status" id="saveStatus"></div>
     </div>
   </div>
 
-  <footer>Logicop</footer>
+  <footer class="site-footer"><span>Logicop</span><span>Beauce Matériel</span></footer>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>

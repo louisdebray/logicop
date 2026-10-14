@@ -95,15 +95,42 @@
     await Promise.all([loadMembers(), loadPending(), loadGrantsForDetail()]);
   }
 
+  /** Champ « Prénom Nom » : enregistré dès qu'on quitte le champ (ou Entrée). */
+  function nameInput(p, onSaved) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Prénom Nom';
+    input.value = p.full_name || '';
+    input.setAttribute('aria-label', 'Prénom et nom de ' + (p.email || ''));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
+    if (onSaved) {
+      input.addEventListener('change', async () => {
+        const value = input.value.trim();
+        const { error: e } = await supabaseClient.from('profiles').update({ full_name: value || null }).eq('id', p.id);
+        if (e) { alert(e.message); input.value = p.full_name || ''; return; }
+        p.full_name = value || null;
+        onSaved(input);
+      });
+    }
+    return input;
+  }
+
+  function flashSaved(input) {
+    input.style.borderColor = 'var(--ok)';
+    setTimeout(() => { input.style.borderColor = ''; }, 1200);
+  }
+
   async function loadMembers() {
     const { data, error } = await supabaseClient
-      .from('profiles').select('id, email, is_gestionnaire')
+      .from('profiles').select('*')
       .eq('company_id', selectedCompanyId);
     if (error) { console.error(error); return; }
     membersBody.innerHTML = '';
     membersEmpty.hidden = (data || []).length > 0;
     (data || []).forEach((p) => {
       const tr = document.createElement('tr');
+      const tdName = document.createElement('td');
+      tdName.appendChild(nameInput(p, flashSaved));
       const tdEmail = document.createElement('td');
       tdEmail.textContent = p.email || p.id;
 
@@ -133,14 +160,14 @@
         await loadPending();
       });
       tdBtn.appendChild(btn);
-      tr.append(tdEmail, tdGestion, tdBtn);
+      tr.append(tdName, tdEmail, tdGestion, tdBtn);
       membersBody.appendChild(tr);
     });
   }
 
   async function loadPending() {
     const { data, error } = await supabaseClient
-      .from('profiles').select('id, email')
+      .from('profiles').select('*')
       .is('company_id', null)
       .eq('is_admin', false);
     if (error) { console.error(error); return; }
@@ -150,18 +177,23 @@
       const tr = document.createElement('tr');
       const tdEmail = document.createElement('td');
       tdEmail.textContent = p.email || p.id;
+      const tdName = document.createElement('td');
+      const input = nameInput(p, null);
+      tdName.appendChild(input);
       const tdBtn = document.createElement('td');
       const btn = document.createElement('button');
       btn.className = 'secondary';
       btn.textContent = 'Assigner ici';
       btn.addEventListener('click', async () => {
-        const { error: updErr } = await supabaseClient.from('profiles').update({ company_id: selectedCompanyId }).eq('id', p.id);
+        const changes = { company_id: selectedCompanyId };
+        if (input.value.trim()) changes.full_name = input.value.trim();
+        const { error: updErr } = await supabaseClient.from('profiles').update(changes).eq('id', p.id);
         if (updErr) { alert(updErr.message); return; }
         await loadMembers();
         await loadPending();
       });
       tdBtn.appendChild(btn);
-      tr.append(tdEmail, tdBtn);
+      tr.append(tdEmail, tdName, tdBtn);
       pendingBody.appendChild(tr);
     });
   }

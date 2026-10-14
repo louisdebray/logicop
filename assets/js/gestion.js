@@ -76,7 +76,7 @@
     members.forEach((m) => {
       const tr = document.createElement('tr');
       const tdName = document.createElement('td');
-      tdName.textContent = m.email || m.id;
+      tdName.textContent = m.full_name || m.email || m.id;
       tr.appendChild(tdName);
       companyTools.forEach((t) => {
         const td = document.createElement('td');

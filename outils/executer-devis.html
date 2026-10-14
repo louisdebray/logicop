@@ -6,31 +6,47 @@
 <title>Logicop</title>
 <link rel="icon" type="image/png" href="../assets/img/favicon.png">
 <link rel="stylesheet" href="../assets/css/style.css">
+<style>
+  .field label.file-drop {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    min-height: 150px; padding: 26px 20px; text-align: center; cursor: pointer;
+    background: var(--paper); border: 2px dashed var(--line-strong);
+    font: 400 0.92rem/1.4 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--text-dim);
+    transition: border-color .15s ease, background .15s ease, transform .2s var(--ease), box-shadow .2s var(--ease);
+  }
+  .file-drop strong { color: var(--bm-ink); font-weight: 600; }
+  .file-drop:hover, .file-drop:focus-within { border-color: var(--bm-ink); border-style: solid; background: #fff; }
+  .file-drop.dragover { border-color: var(--bm-ink); border-style: solid; background: #fff; transform: translate(-3px, -3px); box-shadow: 6px 6px 0 var(--bm-red); }
+  .file-drop-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+  .file-drop-icon { width: 40px; height: 40px; color: var(--bm-red); }
+  .file-drop-name:not(:empty) { padding: 5px 10px 4px; background: var(--bm-ink); color: #fff; font: 700 0.74rem/1.2 var(--font-display); letter-spacing: 0.06em; word-break: break-all; }
+</style>
 </head>
 <body>
+<a class="skip-link" href="#main">Aller au contenu</a>
 
-<div class="topbar">
-  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Logicop, accueil"><img class="brand-mark" src="../assets/img/bm-cube.png" alt=""><span class="brand-text"><span class="brand-name">Logicop</span><span class="by-line">Beauce Matériel</span></span></a>
   <nav>
     <span id="navAccount"></span>
   </nav>
-</div>
+</header>
 
-<main>
-  <p style="margin-bottom:8px;"><a href="../pages/dashboard.html">← Mes outils</a></p>
-  <div class="hero" style="padding-top:16px; text-align:left;">
+<main id="main">
+  <p class="crumb"><a href="../pages/dashboard.html">Mes outils</a></p>
+  <div class="hero">
     <div style="display:flex; align-items:center; gap:14px;">
       <img id="toolBrandLogo" alt="" style="height:40px; max-width:140px; object-fit:contain; object-position:left;" hidden>
-      <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Outil</h1>
+      <h1 id="toolTitle">Outil</h1>
     </div>
     <p id="toolDesc" style="margin:8px 0 0;"></p>
   </div>
 
-  <div id="bydPdfHint" hidden style="margin:12px 0; padding:12px 16px; border-radius:8px; background:#fce4ec; border:1px solid #e53935; color:#c62828; font-weight:600;">
-    📄 Enregistrez votre devis BYD au format PDF pour utiliser le convertisseur
+  <div id="bydPdfHint" class="status err show" hidden>
+    Enregistrez votre devis BYD au format PDF pour utiliser le convertisseur
   </div>
   <div class="privacy-note">
-    🔒 Votre devis est traité directement dans votre navigateur : il n'est jamais envoyé à Logicop.
+    <svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M5 11h14v10H5z"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Votre devis est traité directement dans votre navigateur : il n'est jamais envoyé à Logicop.
   </div>
 
   <div class="step" id="notFoundStep" hidden>
@@ -45,7 +61,12 @@
         <div class="row">
           <div class="field grow">
             <label for="sourceFile">Fichier devis</label>
-            <input type="file" id="sourceFile" accept=".pdf,.xlsx,.xls,.xlsm,.csv">
+            <label class="file-drop" id="fileDrop" for="sourceFile">
+              <input type="file" id="sourceFile" class="file-drop-input" accept=".pdf,.xlsx,.xls,.xlsm,.csv">
+              <svg class="file-drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 10v7M9 14l3 3 3-3"/></svg>
+              <span class="file-drop-text"><strong>Glissez votre devis ici</strong> ou cliquez pour choisir un fichier</span>
+              <span class="file-drop-name" id="fileDropName" aria-live="polite"></span>
+            </label>
           </div>
           <div class="field" id="passwordField" style="display:none;">
             <label for="filePassword">Mot de passe du fichier</label>
@@ -86,7 +107,7 @@
     </div>
   </div>
 
-  <footer>Logicop</footer>
+  <footer class="site-footer"><span>Logicop</span><span>Beauce Matériel</span></footer>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>

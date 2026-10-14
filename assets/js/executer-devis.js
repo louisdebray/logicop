@@ -175,6 +175,31 @@
   });
 
   // ── Extraction ──────────────────────────────────────────────────────
+  // ── Glisser-déposer : le fichier déposé passe par le même champ, donc par le même traitement.
+  const fileDrop = el('fileDrop');
+  const fileDropName = el('fileDropName');
+  ['dragenter', 'dragover'].forEach((ev) => fileDrop.addEventListener(ev, (e) => {
+    e.preventDefault();
+    fileDrop.classList.add('dragover');
+  }));
+  fileDrop.addEventListener('dragleave', (e) => {
+    if (!fileDrop.contains(e.relatedTarget)) fileDrop.classList.remove('dragover');
+  });
+  fileDrop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    fileDrop.classList.remove('dragover');
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || !files.length) return;
+    sourceFile.files = files;
+    sourceFile.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  sourceFile.addEventListener('change', () => {
+    fileDropName.textContent = sourceFile.files[0] ? sourceFile.files[0].name : '';
+  });
+  // Un fichier lâché à côté de la zone ne doit pas faire ouvrir le PDF par le navigateur.
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => { if (!fileDrop.contains(e.target)) e.preventDefault(); });
+
   sourceFile.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;

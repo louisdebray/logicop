@@ -8,24 +8,24 @@
 <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Aller au contenu</a>
 
-<div class="topbar">
-  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Logicop, accueil"><img class="brand-mark" src="../assets/img/bm-cube.png" alt=""><span class="brand-text"><span class="brand-name">Logicop</span><span class="by-line">Beauce Matériel</span></span></a>
   <nav>
     <span id="navAccount"></span>
   </nav>
-</div>
+</header>
 
-<main>
-  <p style="margin-bottom:8px;"><a href="../pages/dashboard.html">← Mes outils</a></p>
-  <div class="hero" style="padding-top:16px; text-align:left;">
-    <img id="toolBrandLogo" class="brand-icon" src="../assets/img/capacite.residuelle.png" alt="" style="height:36px; vertical-align:middle; margin-right:8px;">
-    <h1 style="font-size:1.8rem; margin:0; display:inline; vertical-align:middle;" id="toolTitle">Capacité résiduelle</h1>
+<main id="main">
+  <p class="crumb"><a href="../pages/dashboard.html">Mes outils</a></p>
+  <div class="hero">
+    <div class="title-row"><span class="tool-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M17 3v16h5"/><path d="M2 15.5v-5h9l2 2v3z"/><path d="M4 10.5V5h4.5l2 5.5"/><path d="M13 8.5h4"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="11" cy="18.5" r="2"/></svg></span><h1 id="toolTitle">Capacité résiduelle</h1></div>
     <p id="toolDesc" style="margin:8px 0 0;"></p>
   </div>
 
   <div class="privacy-note">
-    🔒 Votre fiche matériel est traitée directement dans votre navigateur : elle n'est jamais envoyée à Logicop.
+    <svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M5 11h14v10H5z"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Votre fiche matériel est traitée directement dans votre navigateur : elle n'est jamais envoyée à Logicop.</span>
   </div>
 
   <div class="step" id="notFoundStep" hidden>
@@ -89,7 +89,7 @@
     </div>
   </div>
 
-  <footer>Logicop</footer>
+  <footer class="site-footer"><span>Logicop</span><span>Beauce Matériel</span></footer>
 </main>
 
 <script type="module">

@@ -17,14 +17,14 @@
   /* ── Carte simulation ──────────────────────────────────── */
   .machine-card {
     background: var(--bg, #fff); border: 1px solid var(--panel-border);
-    border-radius: 12px; overflow: hidden; flex: 1; min-width: 420px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    border-radius: 0; overflow: hidden; flex: 1; min-width: 420px;
+    box-shadow: none;
   }
   .machine-header {
     display: flex; align-items: center; gap: 8px;
     padding: 10px 16px; background: var(--accent); color: #fff;
   }
-  .machine-header h3 { margin: 0; font-size: 0.95rem; font-weight: 700; }
+  .machine-header h3 { margin: 0; font: 800 0.9rem/1.2 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
   .machine-body { display: flex; gap: 0; }
 
   .col-inputs {
@@ -45,12 +45,12 @@
   }
   .sim-field input {
     width: 100%; padding: 5px 8px; border: 1px solid var(--panel-border);
-    border-radius: 6px; font-size: 0.85rem; background: var(--bg-soft);
+    border-radius: 0; font-size: 0.85rem; background: var(--bg-soft);
     box-sizing: border-box; transition: border-color .15s;
   }
   .sim-field input:focus {
     outline: none; border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(181,80,42,.15);
+    box-shadow: 0 0 0 2px rgba(195,13,38,.15);
   }
   .sim-field input[readonly] {
     background: var(--panel-border); color: var(--text-dim); cursor: not-allowed;
@@ -77,7 +77,7 @@
   .result-total .value { font-size: 1.05rem; font-weight: 800; color: var(--text); white-space: nowrap; }
   .result-coeff {
     margin-top: 8px; text-align: center; padding: 8px;
-    background: #e8f5e9; border-radius: 8px;
+    background: #e8f5e9; border-radius: 0;
   }
   .result-coeff label {
     display: block; font-size: 0.68rem; text-transform: uppercase;
@@ -88,20 +88,20 @@
   /* ── Tableau typologies ────────────────────────────────── */
   .typo-card {
     background: var(--bg, #fff); border: 1px solid var(--panel-border);
-    border-radius: 12px; min-width: 320px; flex: 0 1 400px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    border-radius: 0; min-width: 320px; flex: 0 1 400px;
+    box-shadow: none;
     display: flex; flex-direction: column;
     overflow: hidden; align-self: stretch;
   }
   .typo-header {
     padding: 10px 16px; background: var(--accent); color: #fff;
     margin: 0; flex-shrink: 0;
-    border-radius: 12px 12px 0 0;
+    border-radius: 0;
   }
-  .typo-header h3 { margin: 0; padding: 0; font-size: 0.95rem; font-weight: 700; }
+  .typo-header h3 { margin: 0; padding: 0; font: 800 0.9rem/1.2 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
   .typo-body { padding: 0; margin: 0; overflow-y: auto; flex: 1; }
   .typo-cols {
-    display: flex; background: #c4704a; flex-shrink: 0;
+    display: flex; background: var(--bm-ink); flex-shrink: 0;
   }
   .typo-cols .typo-col {
     font-size: 0.72rem; text-transform: uppercase; letter-spacing: .04em;
@@ -147,18 +147,19 @@
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">Aller au contenu</a>
 
-<div class="topbar">
-  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Logicop, accueil"><img class="brand-mark" src="../assets/img/bm-cube.png" alt=""><span class="brand-text"><span class="brand-name">Logicop</span><span class="by-line">Beauce Matériel</span></span></a>
   <nav>
     <span id="navAccount"></span>
   </nav>
-</div>
+</header>
 
-<main>
-  <p style="margin-bottom:8px;"><a id="backLink" href="../pages/dashboard.html">← Mes outils</a></p>
-  <div class="hero" style="padding-top:10px; text-align:left;">
-    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Simulation coefficient</h1>
+<main id="main">
+  <p class="crumb"><a id="backLink" href="../pages/dashboard.html">Mes outils</a></p>
+  <div class="hero">
+    <h1 id="toolTitle">Simulation coefficient</h1>
     <p id="toolDesc" style="margin:4px 0 0;"></p>
   </div>
 
@@ -241,7 +242,7 @@
     </div>
   </div>
 
-  <footer>Logicop</footer>
+  <footer class="site-footer"><span>Logicop</span><span>Beauce Matériel</span></footer>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>

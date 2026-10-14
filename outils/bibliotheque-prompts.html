@@ -7,125 +7,113 @@
 <link rel="icon" type="image/png" href="../assets/img/favicon.png">
 <link rel="stylesheet" href="../assets/css/style.css">
 <style>
-  /* ── Bibliothèque : cartes ─────────────────────────────────── */
-  .library-count { color: var(--text-dim); font-size: 0.88rem; margin: 0 0 14px; }
+  /* ── Bibliothèque : cartes (même langage que le tableau de bord) ── */
+  .library-count { margin: 0 0 14px; font: 800 0.76rem/1 var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); }
   .prompt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
   .prompt-card {
-    display: flex; flex-direction: column; gap: 10px; padding: 22px;
-    background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius);
-    color: var(--text); text-decoration: none;
-    transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+    display: flex; flex-direction: column; gap: 10px; padding: 22px 22px 18px;
+    background: #fff; border: 2px solid transparent; color: var(--text); text-decoration: none;
+    transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .2s ease;
   }
-  .prompt-card:hover {
-    border-color: var(--accent); transform: translateY(-3px);
-    box-shadow: 0 14px 28px rgba(16,17,20,0.08); text-decoration: none;
-  }
-  .prompt-card:focus-visible { outline: 3px solid rgba(181,80,42,0.35); outline-offset: 2px; }
-  .prompt-card .icon { font-size: 1.7rem; line-height: 1; }
-  .prompt-card h3 { margin: 0; font-size: 1.08rem; font-family: var(--font-body); font-weight: 600; text-transform: none; }
-  .prompt-card p { margin: 0; color: var(--text-dim); font-size: 0.92rem; flex-grow: 1; }
+  .prompt-card:hover { border-color: var(--bm-ink); transform: translate(-4px, -4px); box-shadow: 8px 8px 0 var(--bm-red); text-decoration: none; }
+  .prompt-card:focus-visible { outline: none; border-color: var(--bm-ink); box-shadow: 8px 8px 0 var(--bm-red); }
+  .prompt-card .icon { width: 52px; height: 52px; display: grid; place-items: center; background: var(--paper); color: var(--bm-ink); margin-bottom: 6px; transition: background .2s, color .2s; }
+  .prompt-card .icon svg { width: 26px; height: 26px; }
+  .prompt-card:hover .icon { background: var(--bm-red); color: #fff; }
+  .prompt-card h3 { margin: 0; font: 800 1.05rem/1.2 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
+  .prompt-card p { margin: 0; color: var(--text-dim); font-size: 0.9rem; flex-grow: 1; }
   .prompt-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-  .tag {
-    font-family: var(--font-mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: .05em;
-    padding: 2px 9px; border-radius: 20px; border: 1.5px solid var(--panel-border); color: var(--text-dim);
+  .prompt-tags .tag { padding: 4px 8px 3px; background: var(--paper); color: var(--graphite); font: 700 0.64rem/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; }
+  .prompt-open {
+    display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 14px; border-top: 2px solid var(--paper);
+    font: 800 0.74rem/1 var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--graphite); transition: color .2s;
   }
-  .prompt-open { font-weight: 600; font-size: 0.86rem; color: var(--accent); margin-top: 4px; }
-  .prompt-open span { display: inline-block; transition: transform .15s ease; }
-  .prompt-card:hover .prompt-open span { transform: translateX(4px); }
+  .prompt-open span { display: inline-block; transition: transform .25s var(--ease); }
+  .prompt-card:hover .prompt-open { color: var(--bm-red); }
+  .prompt-card:hover .prompt-open span { transform: translateX(5px); }
 
-  /* ── Formulaire ────────────────────────────────────────────── */
-  .back-to-library { display: inline-block; margin-bottom: 10px; font-size: 0.9rem; }
-  .view-head { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
-  .view-head .icon { font-size: 2rem; line-height: 1; }
-  .view-head h2 { margin: 0; font-size: 1.7rem; }
-  .view-head p { margin: 2px 0 0; color: var(--text-dim); font-size: 0.92rem; }
+  /* ── Formulaire ── */
+  .back-to-library { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; color: var(--text-dim); font: 700 0.74rem/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; }
+  .back-to-library:hover { color: var(--bm-red); text-decoration: none; }
+  .view-head { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+  .view-head .icon { width: 56px; height: 56px; display: grid; place-items: center; background: var(--bm-ink); color: #fff; flex-shrink: 0; }
+  .view-head .icon svg { width: 28px; height: 28px; }
+  .view-head h2 { margin: 0; font: 900 1.6rem/1.1 var(--font-display); letter-spacing: 0.02em; text-transform: uppercase; }
+  .view-head p { margin: 4px 0 0; color: var(--text-dim); font-size: 0.92rem; }
   .step h2 .num.done { background: var(--ok); }
 
   /* Choix du format (illustré) */
-  .fmt-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 6px; }
+  .fmt-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 6px; }
   .fmt-tile { position: relative; display: block; cursor: pointer; }
-  .fmt-tile input {
-    position: absolute; width: 1px; height: 1px; margin: 0; padding: 0;
-    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-  }
+  .fmt-tile input { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .fmt-body {
     position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px;
-    height: 100%; padding: 16px 10px 14px; text-align: center;
-    background: var(--panel); border: 1.5px solid var(--panel-border); border-radius: var(--radius);
-    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .15s ease;
+    height: 100%; padding: 18px 10px 16px; text-align: center;
+    background: var(--paper); border: 2px solid transparent;
+    transition: transform .2s var(--ease), box-shadow .2s var(--ease), border-color .15s ease, background .15s ease;
   }
-  .fmt-tile:hover .fmt-body { border-color: var(--accent); transform: translateY(-2px); }
+  .fmt-tile:hover .fmt-body { border-color: var(--bm-ink); background: #fff; }
   .fmt-stage { height: 112px; display: flex; align-items: center; justify-content: center; }
   .fmt-shape {
     display: flex; align-items: center; justify-content: center;
-    border: 2px solid var(--graphite); border-radius: 6px;
-    background: linear-gradient(145deg, rgba(16,17,20,0.04), rgba(16,17,20,0.13));
-    color: var(--graphite); font-family: var(--font-mono); font-weight: 600; font-size: 0.8rem;
-    transition: border-color .15s ease, background .15s ease, color .15s ease;
+    border: 2.5px solid var(--bm-ink); background: #fff; color: var(--bm-ink);
+    font: 800 0.85rem/1 var(--font-display); letter-spacing: 0.04em;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
   }
-  .fmt-name { font-weight: 700; font-size: 0.95rem; }
-  .fmt-use { font-size: 0.76rem; color: var(--text-dim); line-height: 1.35; }
+  .fmt-name { font: 800 0.92rem/1.1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; }
+  .fmt-use { font-size: 0.78rem; color: var(--text-dim); line-height: 1.35; }
   .fmt-check {
-    position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border-radius: 50%;
-    background: var(--accent); color: #fff; font-size: 0.7rem; font-weight: 700;
+    position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
+    background: var(--bm-red); color: #fff; font-size: 0.72rem; font-weight: 700;
     display: flex; align-items: center; justify-content: center;
     opacity: 0; transform: scale(.6); transition: opacity .15s ease, transform .15s ease;
   }
-  .fmt-tile input:checked + .fmt-body {
-    border-color: var(--accent); background: rgba(181,80,42,0.06); box-shadow: 0 0 0 3px rgba(181,80,42,0.14);
-  }
-  .fmt-tile input:checked + .fmt-body .fmt-shape {
-    border-color: var(--accent); color: var(--accent-dark);
-    background: linear-gradient(145deg, rgba(181,80,42,0.10), rgba(181,80,42,0.24));
-  }
+  .fmt-tile input:checked + .fmt-body { border-color: var(--bm-ink); background: #fff; transform: translate(-3px, -3px); box-shadow: 6px 6px 0 var(--bm-red); }
+  .fmt-tile input:checked + .fmt-body .fmt-shape { background: var(--bm-red); border-color: var(--bm-red); color: #fff; }
   .fmt-tile input:checked + .fmt-body .fmt-check { opacity: 1; transform: scale(1); }
-  .fmt-tile input:focus-visible + .fmt-body { outline: 3px solid rgba(181,80,42,0.35); outline-offset: 2px; }
+  .fmt-tile input:focus-visible + .fmt-body { outline: 3px solid var(--bm-ink); outline-offset: 3px; }
 
   /* Durée */
-  .unit-input { position: relative; max-width: 240px; }
-  .unit-input input { width: 100%; padding-right: 88px; }
-  .unit-input .unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-dim); font-size: 0.85rem; pointer-events: none; }
+  .unit-input { position: relative; max-width: 260px; }
+  .unit-input input { width: 100%; padding-right: 96px; }
+  .unit-input .unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-dim); font: 700 0.72rem/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; pointer-events: none; }
 
   /* Contenu */
-  .pl-textarea {
-    width: 100%; min-height: 190px; resize: vertical; padding: 10px 12px;
-    background: var(--input-bg); border: 1px solid var(--panel-border); border-radius: 6px;
-    color: var(--text); font-size: 0.92rem; font-family: var(--font-body); line-height: 1.5;
-    transition: border-color .15s ease, box-shadow .15s ease;
-  }
-  .pl-textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(181,80,42,0.15); }
+  .pl-textarea { width: 100%; min-height: 200px; resize: vertical; font-size: 0.95rem; }
 
   /* Génération + résultat */
-  .gen-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-  .gen-row .gen-hint { color: var(--text-dim); font-size: 0.85rem; }
+  .gen-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 24px; }
+  .gen-row button { min-height: 52px; padding: 0 28px; }
+  .gen-row .gen-hint { color: var(--text-dim); font-size: 0.86rem; }
   .prompt-output {
-    margin: 0 0 14px; padding: 18px 20px; max-height: 460px; overflow: auto;
-    background: var(--ink); color: var(--header-text); border-radius: var(--radius);
+    margin: 0 0 16px; padding: 20px 22px; max-height: 460px; overflow: auto;
+    background: var(--bm-ink); color: #f2f2f1; border-left: 6px solid var(--bm-red);
     font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.65;
     white-space: pre-wrap; overflow-wrap: anywhere;
   }
-  .copy-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .copy-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .copy-state { color: var(--ok); font-size: 0.88rem; font-weight: 600; }
 
   @media (max-width: 720px) {
     .fmt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .view-head h2 { font-size: 1.4rem; }
+    .view-head h2 { font-size: 1.3rem; }
   }
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">Aller au contenu</a>
 
-<div class="topbar">
-  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Logicop, accueil"><img class="brand-mark" src="../assets/img/bm-cube.png" alt=""><span class="brand-text"><span class="brand-name">Logicop</span><span class="by-line">Beauce Matériel</span></span></a>
   <nav>
     <span id="navAccount"></span>
   </nav>
-</div>
+</header>
 
-<main>
-  <p style="margin-bottom:8px;"><a href="../pages/dashboard.html" id="backLink">← Mes outils</a></p>
-  <div class="hero" style="padding-top:10px; text-align:left;">
-    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Bibliothèque de prompt</h1>
+<main id="main">
+  <p class="crumb"><a href="../pages/dashboard.html" id="backLink">Mes outils</a></p>
+  <div class="hero">
+    <h1 id="toolTitle">Bibliothèque de prompt</h1>
     <p id="toolDesc" style="margin:4px 0 0;"></p>
   </div>
 
@@ -172,7 +160,7 @@
 
   </div>
 
-  <footer>Logicop</footer>
+  <footer class="site-footer"><span>Logicop</span><span>Beauce Matériel</span></footer>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -188,7 +176,7 @@
   const PROMPTS = [
     {
       id: 'video-motion-design',
-      icon: '🎬',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h13v12H3z"/><path d="M16 10l5-3v10l-5-3"/></svg>', // SVG statique (contenu de confiance, inséré tel quel)
       title: 'Génération de vidéo motion design',
       description: "Prépare le prompt de création d'une vidéo motion design à partir du contenu d'une publication.",
       tags: ['Vidéo', 'Motion design'],
@@ -262,7 +250,7 @@ Rue de la Motte, 28110 Lucé
     $('libraryCount').textContent = PROMPTS.length + ' prompt' + (PROMPTS.length > 1 ? 's' : '') + ' disponible' + (PROMPTS.length > 1 ? 's' : '');
     $('promptGrid').innerHTML = PROMPTS.map((p) =>
       '<a class="prompt-card" href="#' + encodeURIComponent(p.id) + '">' +
-        '<div class="icon">' + esc(p.icon) + '</div>' +
+        '<div class="icon">' + p.icon + '</div>' +
         '<h3>' + esc(p.title) + '</h3>' +
         '<p>' + esc(p.description) + '</p>' +
         '<div class="prompt-tags">' + p.tags.map((t) => '<span class="tag">' + esc(t) + '</span>').join('') + '</div>' +
@@ -322,7 +310,7 @@ Rue de la Motte, 28110 Lucé
 
   function showForm(prompt) {
     current = { prompt, values: {}, nums: {} };
-    $('formIcon').textContent = prompt.icon;
+    $('formIcon').innerHTML = prompt.icon;
     $('formTitle').textContent = prompt.title;
     $('formDesc').textContent = prompt.description;
 

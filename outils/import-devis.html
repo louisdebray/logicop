@@ -8,21 +8,22 @@
 <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Aller au contenu</a>
 
-<div class="topbar">
-  <div style="display:flex; align-items:center; gap:14px;">
-    <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
-    <span style="color:var(--header-text-dim); font-family:var(--font-mono); font-size:0.78rem; text-transform:uppercase; letter-spacing:.06em;">admin</span>
+<header class="topbar">
+  <div class="brand-wrap">
+    <a class="brand" href="../index.html" aria-label="Logicop, accueil"><img class="brand-mark" src="../assets/img/bm-cube.png" alt=""><span class="brand-text"><span class="brand-name">Logicop</span><span class="by-line">Beauce Matériel</span></span></a>
+    <span class="env-badge">Admin</span>
   </div>
   <nav>
     <a href="../pages/admin.html">← Retour à l'admin</a>
     <span id="navAccount"></span>
   </nav>
-</div>
+</header>
 
-<main>
-  <div class="hero" style="padding-top:16px;">
-    <h1 style="font-size:1.8rem;" id="pageTitle">Nouvel outil</h1>
+<main id="main">
+  <div class="hero">
+    <h1 id="pageTitle">Nouvel outil</h1>
     <p>Entraînez l'extraction sur un devis exemple fourni par le client, testez, puis enregistrez.</p>
   </div>
 
@@ -276,7 +277,7 @@
     <div class="status" id="genStatus"></div>
   </div>
 
-  <footer>Logicop — Éditeur d'outil (admin)</footer>
+  <footer class="site-footer"><span>Logicop — Éditeur d'outil (admin)</span><span>Beauce Matériel</span></footer>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>

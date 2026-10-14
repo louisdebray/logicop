@@ -7,38 +7,41 @@
 <link rel="icon" type="image/png" href="../assets/img/favicon.png">
 <link rel="stylesheet" href="../assets/css/style.css">
 <style>
-  /* ── Barre marques ─────────────────────────────────────────── */
-  .brand-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  /* ── Barre marques : pastilles carrées, la marque active sur sa plaque rouge ── */
+  .brand-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
   .brand-pill {
-    display: flex; align-items: center; gap: 10px;
-    background: var(--panel); border: 2px solid var(--panel-border);
-    border-radius: 10px; padding: 16px 26px; cursor: pointer;
-    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
-    font-size: 1rem; font-weight: 700; color: var(--text);
+    display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 68px;
+    background: #fff; border: 2px solid transparent; padding: 14px 24px; cursor: pointer;
+    font: 800 0.82rem/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--bm-ink);
+    transition: transform .2s var(--ease), box-shadow .2s var(--ease), border-color .15s ease;
   }
-  .brand-pill img { height: 34px; width: auto; max-width: 130px; object-fit: contain; }
-  .brand-pill:hover { border-color: var(--accent); }
-  .brand-pill.active { border-color: var(--accent); background: rgba(181,80,42,0.06); box-shadow: 0 0 0 2px rgba(181,80,42,0.12); }
+  .brand-pill img { height: 30px; width: auto; max-width: 130px; object-fit: contain; }
+  .brand-pill:hover { border-color: var(--bm-ink); transform: translate(-3px, -3px); box-shadow: 5px 5px 0 var(--paper-dim); }
+  .brand-pill.active { border-color: var(--bm-ink); transform: translate(-3px, -3px); box-shadow: 6px 6px 0 var(--bm-red); }
 
-  /* ── CTA recherche intelligente ────────────────────────────── */
+  /* ── Recherche intelligente : aplat sombre, bouton rouge ── */
   .smart-cta {
-    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
-    background: linear-gradient(135deg, rgba(181,80,42,0.08), rgba(181,80,42,0.02));
-    border: 1.5px solid var(--accent); border-radius: var(--radius);
-    padding: 18px 22px; margin-bottom: 18px;
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+    background: var(--bm-ink); color: #fff; padding: 26px 30px; margin-bottom: 22px;
   }
-  .smart-cta-text strong { font-size: 1.05rem; display: block; margin-bottom: 3px; }
-  .smart-cta-text p { margin: 0; color: var(--text-dim); font-size: 0.86rem; }
-  .smart-cta button { flex-shrink: 0; font-size: 0.95rem; padding: 12px 22px; }
+  .smart-cta::after {
+    content: ''; position: absolute; right: -40px; top: -30px; width: 220px; height: 160%;
+    background: var(--bm-red); transform: skewX(-24deg); opacity: .9; pointer-events: none;
+  }
+  .smart-cta-text { position: relative; z-index: 1; max-width: 62ch; }
+  .smart-cta-text strong { display: flex; align-items: center; margin-bottom: 6px; font: 900 1.25rem/1.1 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; color: #fff; }
+  .smart-cta-text strong .cta-icon { color: #fff; }
+  .smart-cta-text p { margin: 0; color: #c9c9c7; font-size: 0.9rem; }
+  .smart-cta button { position: relative; z-index: 1; flex-shrink: 0; background: #fff; color: var(--bm-ink); border-color: #fff; min-height: 50px; padding: 0 26px; }
+  .smart-cta button:hover { background: #fff; color: var(--bm-ink); box-shadow: 6px 6px 0 var(--bm-gray); }
 
-  /* ── Barre filtres ─────────────────────────────────────────── */
+  /* ── Barre filtres ── */
   .filter-bar {
-    display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
-    padding: 14px 16px; background: var(--panel); border: 1px solid var(--panel-border);
-    border-radius: var(--radius); margin-bottom: 18px;
+    display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;
+    padding: 18px 20px; background: #fff; margin-bottom: 22px;
   }
   .filter-bar .field { min-width: 140px; }
-  .filter-bar .field label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .03em; font-family: var(--font-mono); }
   .filter-bar .spacer { flex: 1 1 auto; min-width: 0; }
   .filter-bar .actions { display: flex; gap: 8px; margin-left: auto; }
 
@@ -46,107 +49,113 @@
   #smartSearchBanner[hidden] { display: none !important; }
   #filterNbRouesField[hidden] { display: none !important; }
 
-  .results-summary { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .results-summary .count { color: var(--text-dim); font-size: 0.88rem; }
+  .results-summary { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 14px; }
+  .results-summary .count { font: 800 0.76rem/1 var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); }
 
-  .best-fit-section { margin-bottom: 28px; }
-  .best-fit-section h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .03em; color: var(--accent); margin: 0 0 12px; font-family: var(--font-mono); }
+  .best-fit-section { margin-bottom: 32px; }
+  .best-fit-section h2 {
+    display: inline-block; margin: 0 0 18px; padding: 8px 14px 7px; background: var(--bm-red); color: #fff;
+    font: 800 0.86rem/1 var(--font-display); letter-spacing: 0.14em; text-transform: uppercase;
+    transform: rotate(-1.5deg); box-shadow: 5px 4px 0 var(--bm-gray);
+  }
 
-  /* ── Carte modèle ──────────────────────────────────────────── */
-  .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; }
+  /* ── Carte modèle : même comportement que les cartes d'outils ── */
+  .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
   .model-card {
-    position: relative; background: var(--panel); border: 1px solid var(--panel-border);
-    border-radius: var(--radius); padding: 16px; cursor: pointer;
+    position: relative; background: #fff; border: 2px solid transparent; padding: 18px 18px 16px; cursor: pointer;
     display: flex; flex-direction: column; gap: 8px;
-    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+    transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .15s ease;
   }
-  .model-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 10px 22px rgba(16,17,20,0.08); }
-  .model-card.best-fit { border-color: var(--accent); background: rgba(181,80,42,0.04); }
+  .model-card:hover { border-color: var(--bm-ink); transform: translate(-4px, -4px); box-shadow: 8px 8px 0 var(--bm-red); }
+  .model-card.best-fit { border-color: var(--bm-red); }
   .best-fit-ribbon {
-    position: absolute; top: -1px; right: 12px; background: var(--accent); color: #fff;
-    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-    padding: 3px 9px; border-radius: 0 0 6px 6px; font-family: var(--font-mono);
+    position: absolute; top: -2px; right: 14px; padding: 5px 10px 4px; background: var(--bm-red); color: #fff;
+    font: 800 0.66rem/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase;
   }
-  .model-card-top { display: flex; align-items: center; justify-content: space-between; }
-  .model-card-top img { height: 24px; max-width: 100px; object-fit: contain; object-position: left; }
-  .model-card h3 { margin: 0; font-size: 1.15rem; font-family: var(--font-body); font-weight: 700; }
-  .model-meta { color: var(--text-dim); font-size: 0.82rem; }
+  .model-card-top { display: flex; align-items: center; justify-content: space-between; min-height: 26px; }
+  .model-card-top img { height: 22px; max-width: 110px; object-fit: contain; object-position: left; }
+  .model-card h3 { margin: 4px 0 0; font: 900 1.3rem/1.05 var(--font-display); letter-spacing: 0.02em; text-transform: uppercase; }
+  .model-meta { color: var(--text-dim); font-size: 0.84rem; }
   .badge-row { display: flex; gap: 6px; flex-wrap: wrap; }
   .energie-badge {
-    display: inline-block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .03em; padding: 2px 8px; border-radius: 20px; border: 1.5px solid; font-family: var(--font-mono);
+    display: inline-block; padding: 4px 8px 3px; color: #fff;
+    font: 800 0.66rem/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase;
   }
-  .energie-badge.electrique { color: var(--ok); border-color: var(--ok); }
-  .energie-badge.diesel { color: var(--warn); border-color: var(--warn); }
-  .energie-badge.gaz { color: var(--accent); border-color: var(--accent); }
-  .model-stats { display: flex; gap: 14px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--panel-border); }
-  .model-stats .stat { display: flex; flex-direction: column; gap: 2px; }
-  .model-stats .stat-label { font-size: 0.65rem; text-transform: uppercase; color: var(--text-dim); font-family: var(--font-mono); letter-spacing: .03em; }
-  .model-stats .stat-value { font-size: 0.92rem; font-weight: 700; color: var(--text); }
-  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+  .energie-badge.electrique { background: var(--ok); }
+  .energie-badge.diesel { background: var(--bm-ink); }
+  .energie-badge.gaz { background: var(--warn); }
+  .model-stats { display: flex; gap: 20px; margin-top: 6px; padding-top: 12px; border-top: 2px solid var(--paper); }
+  .model-stats .stat { display: flex; flex-direction: column; gap: 3px; }
+  .model-stats .stat-label { font: 700 0.64rem/1.2 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
+  .model-stats .stat-value { font: 800 1rem/1.1 var(--font-display); color: var(--bm-ink); font-variant-numeric: tabular-nums; }
+  .empty-state { padding: 60px 20px; background: #fff; text-align: center; color: var(--text-dim); }
 
-  /* ── Modales ───────────────────────────────────────────────── */
+  /* ── Modales ── */
   .modal-overlay {
-    position: fixed; inset: 0; background: rgba(16,17,20,0.55); z-index: 1000;
-    display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto;
+    position: fixed; inset: 0; background: rgba(42,42,42,0.62); z-index: 1000;
+    display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; overflow-y: auto;
   }
   .modal-overlay[hidden] { display: none; }
   .modal {
-    position: relative; background: var(--bg-soft); border-radius: var(--radius);
-    max-width: 880px; width: 100%; padding: 28px; box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+    position: relative; background: #fff; max-width: 900px; width: 100%; padding: 32px;
+    border: 2px solid var(--bm-ink); box-shadow: 12px 12px 0 var(--bm-red);
+    animation: riseIn .3s var(--ease) backwards;
   }
-  .modal-close {
-    position: absolute; top: 14px; right: 14px; background: none; border: none; color: var(--text-dim);
-    font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 4px 8px; box-shadow: none;
+  .modal .modal-close {
+    position: absolute; top: 12px; right: 12px; display: grid; place-items: center;
+    width: 40px; height: 40px; min-height: 0; padding: 0; background: none; border: 2px solid transparent;
+    color: var(--bm-ink); font: 400 1.6rem/1 var(--font-body); cursor: pointer; box-shadow: none;
   }
-  .modal-close:hover { color: var(--text); background: var(--input-bg); border-radius: 6px; transform: none; box-shadow: none; }
-  .modal h2 { margin: 0 0 4px; font-size: 1.4rem; }
-  .modal .modal-sub { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 18px; }
+  .modal .modal-close:hover { background: var(--paper); border-color: var(--bm-ink); color: var(--bm-ink); transform: none; box-shadow: none; }
+  .modal h2 { margin: 0 0 4px; padding-right: 48px; font: 900 1.6rem/1.1 var(--font-display); letter-spacing: 0.02em; text-transform: uppercase; }
+  .modal .modal-sub { color: var(--text-dim); font-size: 0.92rem; margin-bottom: 20px; }
   .detail-info-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 18px;
-    margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--panel-border);
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px;
+    margin-bottom: 22px; background: var(--paper);
   }
-  .detail-info-grid .info-label { font-size: 0.68rem; text-transform: uppercase; color: var(--text-dim); font-family: var(--font-mono); letter-spacing: .03em; }
-  .detail-info-grid .info-value { font-size: 0.94rem; font-weight: 600; }
+  .detail-info-grid > div { padding: 12px 14px; background: #fff; }
+  .detail-info-grid .info-label { font: 700 0.64rem/1.2 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
+  .detail-info-grid .info-value { margin-top: 4px; font: 800 1.02rem/1.2 var(--font-display); color: var(--bm-ink); }
   .config-table-wrap { overflow-x: auto; }
   .config-table-wrap table { font-size: 0.8rem; white-space: nowrap; }
   .config-table-wrap th { white-space: nowrap; }
   .config-table-wrap td, .config-table-wrap th { height: 38px; vertical-align: middle; box-sizing: border-box; }
   .na-cell { color: var(--text-dim); font-style: italic; }
-  .row-match { background: rgba(63,125,74,0.08); }
-  .row-match td:first-child { border-left: 3px solid var(--ok); }
+  .row-match > td { background: rgba(36,118,74,0.09); }
+  .row-match td:first-child { box-shadow: inset 4px 0 0 var(--ok); }
   .match-tag { color: var(--ok); font-weight: 700; font-size: 0.72rem; margin-right: 4px; }
 
   .recommended-callout {
-    display: flex; align-items: center; gap: 10px; background: rgba(63,125,74,0.09);
-    border: 1.5px solid var(--ok); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
-    font-size: 0.88rem; color: var(--text);
+    display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding: 14px 16px;
+    background: rgba(36,118,74,0.08); border-left: 5px solid var(--ok); font-size: 0.9rem; color: var(--text);
   }
   .recommended-callout strong { color: var(--ok); }
 
   .detail-actions { display: flex; gap: 8px; align-items: center; margin: -6px 0 18px; flex-wrap: wrap; }
-  .link-edit-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: -6px 0 18px; }
-  .link-edit-row input { flex: 1 1 260px; }
 
   @media (max-width: 720px) {
     .filter-bar { flex-direction: column; align-items: stretch; }
     .filter-bar .actions { margin-left: 0; }
+    .smart-cta { padding: 22px 20px; }
+    .smart-cta::after { width: 120px; }
+    .modal { padding: 24px 18px; box-shadow: 6px 6px 0 var(--bm-red); }
   }
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">Aller au contenu</a>
 
-<div class="topbar">
-  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Logicop, accueil"><img class="brand-mark" src="../assets/img/bm-cube.png" alt=""><span class="brand-text"><span class="brand-name">Logicop</span><span class="by-line">Beauce Matériel</span></span></a>
   <nav>
     <span id="navAccount"></span>
   </nav>
-</div>
+</header>
 
-<main>
-  <p style="margin-bottom:8px;"><a href="../pages/dashboard.html" id="backLink">← Mes outils</a></p>
-  <div class="hero" style="padding-top:10px; text-align:left;">
-    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Catalogue produits</h1>
+<main id="main">
+  <p class="crumb"><a href="../pages/dashboard.html" id="backLink">Mes outils</a></p>
+  <div class="hero">
+    <h1 id="toolTitle">Catalogue produits</h1>
     <p id="toolDesc" style="margin:4px 0 0;"></p>
   </div>
 
@@ -162,7 +171,7 @@
 
     <div class="smart-cta">
       <div class="smart-cta-text">
-        <strong>🔍 Recherche intelligente</strong>
+        <strong><svg class="cta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>Recherche intelligente</strong>
         <p>Trouvez le chariot adapté à partir du poids de charge, de la hauteur de pose, de la largeur d'allée et de la hauteur de passage.</p>
       </div>
       <button id="btnSmartSearch">Lancer la recherche</button>
@@ -216,7 +225,7 @@
     </div>
 
     <div class="best-fit-section" id="bestFitSection" hidden>
-      <h2>★ Meilleurs fits</h2>
+      <h2>Meilleurs fits</h2>
       <div class="model-grid" id="bestFitGrid"></div>
     </div>
 
@@ -224,7 +233,7 @@
     <div class="empty-state" id="emptyState" hidden>Aucun modèle ne correspond à ces critères.</div>
   </div>
 
-  <footer>Logicop</footer>
+  <footer class="site-footer"><span>Logicop</span><span>Beauce Matériel</span></footer>
 </main>
 
 <!-- Modal détail modèle -->
@@ -581,7 +590,7 @@
     card.addEventListener('click', function() { openDetail(m); });
 
     var html = '';
-    if (isBestFit) html += '<div class="best-fit-ribbon">★ Meilleur fit</div>';
+    if (isBestFit) html += '<div class="best-fit-ribbon">Meilleur fit</div>';
     html += '<div class="model-card-top">';
     var logo = BRAND_LOGOS[m.marque];
     html += logo ? '<img src="' + logo + '" alt="' + esc(m.marque) + '" onerror="this.replaceWith(document.createTextNode(\'' + esc(m.marque) + '\'))">' : '<span style="font-weight:700;">' + esc(m.marque) + '</span>';
@@ -645,7 +654,7 @@
       var cdgWarning = document.getElementById('smartSearchCdgWarning');
       if (state.smartSearch.criteria.poids != null && state.smartSearch.criteria.cdg === 600) {
         cdgWarning.hidden = false;
-        cdgWarning.textContent = "⚠️ Les capacités résiduelles à 600 mm ne sont pas systématiquement renseignées par les constructeurs. Si aucun modèle ne correspond (ou pour confirmer un résultat), vérifiez directement la fiche technique constructeur — un modèle compatible peut exister sans que la donnée soit présente ici.";
+        cdgWarning.textContent = "Les capacités résiduelles à 600 mm ne sont pas systématiquement renseignées par les constructeurs. Si aucun modèle ne correspond (ou pour confirmer un résultat), vérifiez directement la fiche technique constructeur — un modèle compatible peut exister sans que la donnée soit présente ici.";
       } else {
         cdgWarning.hidden = true;
       }
@@ -741,7 +750,7 @@
 
     html += '<div class="detail-actions" id="linkActionsRow"></div>';
 
-    html += '<p class="hint" style="margin:0 0 16px; font-style:italic;">⚠️ Ces données sont fournies à titre indicatif, vérifiez toujours les valeurs directement sur la fiche technique du constructeur.</p>';
+    html += '<p class="hint" style="margin:0 0 16px; font-style:italic;">Ces données sont fournies à titre indicatif, vérifiez toujours les valeurs directement sur la fiche technique du constructeur.</p>';
 
     var visibleCols = CONFIG_COLUMNS.filter(function(col) { return columnHasData(m.configs, col.key); });
 
@@ -782,7 +791,7 @@
   function renderLinkActions(m) {
     var row = document.getElementById('linkActionsRow');
     var url = productLinks[linkKey(m)];
-    row.innerHTML = url ? '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener">🔗 Lien produit</a>' : '';
+    row.innerHTML = url ? '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener">Lien produit <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></a>' : '';
   }
 
   async function loadProductLinks() {

@@ -14,27 +14,27 @@
   }
   .docs-toolbar input[type="search"] {
     flex: 1; min-width: 200px; padding: 8px 12px;
-    border: 1px solid var(--panel-border); border-radius: 6px;
-    font-size: 0.9rem; background: var(--bg-soft);
+    font-size: 0.9rem;
   }
   .view-toggle { display: flex; gap: 0; }
   .view-toggle button {
-    padding: 7px 12px; border: 1px solid var(--panel-border);
-    background: var(--bg-soft); cursor: pointer; font-size: 1rem;
-    color: var(--text-dim); line-height: 1;
+    width: 42px; min-height: 42px; padding: 0; border: 2px solid var(--panel-border);
+    background: #fff; color: var(--text-dim); box-shadow: none;
   }
-  .view-toggle button:first-child { border-radius: 6px 0 0 6px; }
-  .view-toggle button:last-child { border-radius: 0 6px 6px 0; border-left: none; }
-  .view-toggle button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .view-toggle button svg { width: 18px; height: 18px; }
+  .view-toggle button:last-child { border-left: none; }
+  .view-toggle button:hover { background: var(--paper); color: var(--bm-ink); transform: none; box-shadow: none; }
+  .view-toggle button.active { background: var(--bm-ink); color: #fff; border-color: var(--bm-ink); }
 
   /* ── Dossiers ──────────────────────────────────────────── */
   .folder-block { margin-bottom: 24px; }
   .folder-header {
     display: flex; align-items: center; gap: 10px;
-    padding: 8px 12px; background: var(--bg-soft); border-radius: 8px;
+    padding: 10px 14px; background: var(--bm-ink); color: #fff;
     margin-bottom: 8px; cursor: pointer; user-select: none;
   }
-  .folder-header h3 { margin: 0; font-size: 1rem; flex: 1; }
+  .folder-header h3 { margin: 0; flex: 1; font: 800 0.86rem/1.2 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
+  .folder-glyph svg { width: 18px; height: 18px; display: block; color: var(--bm-red); }
   .folder-header .arrow { transition: transform .2s; }
   .folder-header.collapsed .arrow { transform: rotate(-90deg); }
   .folder-contents { padding-left: 8px; }
@@ -57,8 +57,10 @@
     padding: 10px 12px; border-bottom: 1px solid var(--panel-border);
     text-decoration: none; color: inherit; transition: background .15s;
   }
-  .doc-list-item:hover { background: var(--bg-soft); }
-  .doc-list-item .doc-list-icon { font-size: 1.4rem; flex-shrink: 0; }
+  .doc-list-item { background: #fff; }
+  .doc-list-item:hover { background: var(--paper); }
+  .doc-list-item .doc-list-icon { flex-shrink: 0; width: 22px; height: 22px; color: var(--bm-ink); }
+  .doc-list-item .doc-list-icon svg { width: 22px; height: 22px; display: block; }
   .doc-list-item .doc-list-name { flex: 1; font-weight: 500; }
   .doc-list-item .doc-list-open { color: var(--accent); font-size: 0.82rem; flex-shrink: 0; }
 
@@ -71,11 +73,13 @@
   .doc-icon-card {
     display: flex; flex-direction: column; align-items: center;
     text-align: center; text-decoration: none; color: inherit;
-    padding: 14px 8px; border-radius: 10px;
-    transition: background .15s;
+    padding: 16px 8px; background: #fff; border: 2px solid transparent;
+    transition: transform .2s var(--ease), box-shadow .2s var(--ease), border-color .15s;
   }
-  .doc-icon-card:hover { background: var(--bg-soft); }
-  .doc-icon-card .icon-big { font-size: 2.8rem; line-height: 1; margin-bottom: 6px; }
+  .doc-icon-card:hover { border-color: var(--bm-ink); transform: translate(-3px, -3px); box-shadow: 5px 5px 0 var(--bm-red); text-decoration: none; }
+  .doc-icon-card .icon-big, .folder-icon-card .icon-big { width: 44px; height: 44px; margin-bottom: 8px; color: var(--bm-ink); }
+  .doc-icon-card .icon-big svg, .folder-icon-card .icon-big svg { width: 44px; height: 44px; display: block; }
+  .folder-icon-card .icon-big { color: var(--bm-red); }
   .doc-icon-card .icon-label {
     font-size: 0.78rem; line-height: 1.25;
     word-break: break-word; max-width: 100%;
@@ -97,11 +101,10 @@
   .folder-icon-card {
     display: flex; flex-direction: column; align-items: center;
     text-align: center; color: inherit;
-    padding: 14px 8px; border-radius: 10px;
-    transition: background .15s; cursor: pointer;
+    padding: 16px 8px; background: #fff; border: 2px solid transparent;
+    transition: transform .2s var(--ease), box-shadow .2s var(--ease), border-color .15s; cursor: pointer;
   }
-  .folder-icon-card:hover { background: var(--bg-soft); }
-  .folder-icon-card .icon-big { font-size: 2.8rem; line-height: 1; margin-bottom: 6px; }
+  .folder-icon-card:hover { border-color: var(--bm-ink); transform: translate(-3px, -3px); box-shadow: 5px 5px 0 var(--bm-red); }
   .folder-icon-card .icon-label {
     font-size: 0.78rem; line-height: 1.25;
     word-break: break-word; max-width: 100%; font-weight: 600;
@@ -161,18 +164,19 @@
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">Aller au contenu</a>
 
-<div class="topbar">
-  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Logicop, accueil"><img class="brand-mark" src="../assets/img/bm-cube.png" alt=""><span class="brand-text"><span class="brand-name">Logicop</span><span class="by-line">Beauce Matériel</span></span></a>
   <nav>
     <span id="navAccount"></span>
   </nav>
-</div>
+</header>
 
-<main>
-  <p style="margin-bottom:8px;"><a id="backLink" href="../pages/dashboard.html">← Mes outils</a></p>
-  <div class="hero" style="padding-top:16px; text-align:left;">
-    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Documents partagés</h1>
+<main id="main">
+  <p class="crumb"><a id="backLink" href="../pages/dashboard.html">Mes outils</a></p>
+  <div class="hero">
+    <h1 id="toolTitle">Documents partagés</h1>
     <p id="toolDesc" style="margin:8px 0 0;"></p>
   </div>
 
@@ -199,8 +203,8 @@
     <div class="docs-toolbar" id="toolbar" hidden>
       <input type="search" id="searchInput" placeholder="Rechercher un document…">
       <div class="view-toggle" id="viewToggle">
-        <button data-view="list" class="active" title="Vue liste">☰</button>
-        <button data-view="icons" title="Vue icônes">▦</button>
+        <button data-view="list" class="active" title="Vue liste" aria-label="Vue liste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <button data-view="icons" title="Vue icônes" aria-label="Vue icônes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg></button>
       </div>
     </div>
 
@@ -209,12 +213,14 @@
     <p class="hint" id="emptyHint" hidden style="text-align:center;">Aucun document pour l'instant.</p>
   </div>
 
-  <footer>Logicop</footer>
+  <footer class="site-footer"><span>Logicop</span><span>Beauce Matériel</span></footer>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="../assets/js/supabase-config.js"></script>
 <script>
+const FOLDER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 5h7l2 2.5h9V19H3z"/></svg>';
+const DOC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 15.5h6M9 19h3"/></svg>';
 (async function init() {
   var session = await requireSession('../pages/login.html');
   if (!session) return;
@@ -338,7 +344,7 @@
         var bc = document.createElement('div');
         bc.className = 'docs-breadcrumb';
         var rootLink = document.createElement('a');
-        rootLink.textContent = '📁 Accueil';
+        rootLink.textContent = 'Accueil';
         rootLink.addEventListener('click', function() { openFolderId = null; renderFromCache(); });
         var sep = document.createElement('span');
         sep.className = 'sep';
@@ -415,7 +421,7 @@
 
     var header = document.createElement('div');
     header.className = 'folder-header';
-    header.innerHTML = '<span class="arrow">▼</span><h3>📁 ' + escHtml(folder.name) + '</h3>';
+    header.innerHTML = '<span class="arrow">▼</span><span class="folder-glyph">' + FOLDER_SVG + '</span><h3>' + escHtml(folder.name) + '</h3>';
     header.classList.add('collapsed');
 
     if (isAdmin) {
@@ -485,7 +491,7 @@
   function buildFolderIconCard(folder) {
     var div = document.createElement('div');
     div.className = 'folder-icon-card';
-    div.innerHTML = '<span class="icon-big">📁</span>'
+    div.innerHTML = '<span class="icon-big">' + FOLDER_SVG + '</span>'
       + '<span class="icon-label">' + escHtml(folder.name) + '</span>';
     div.addEventListener('click', function() {
       openFolderId = folder.id;
@@ -553,7 +559,7 @@
     a.className = 'doc-list-item';
     a.href = doc.url;
     a.addEventListener('click', function(e) { e.preventDefault(); openViewer(doc); });
-    a.innerHTML = '<span class="doc-list-icon">📄</span>'
+    a.innerHTML = '<span class="doc-list-icon">' + DOC_SVG + '</span>'
       + '<span class="doc-list-name">' + escHtml(doc.name) + '</span>'
       + '<span class="doc-list-open">Ouvrir</span>';
     return a;
@@ -564,7 +570,7 @@
     a.className = 'doc-icon-card';
     a.href = doc.url;
     a.addEventListener('click', function(e) { e.preventDefault(); openViewer(doc); });
-    a.innerHTML = '<span class="icon-big">📄</span>'
+    a.innerHTML = '<span class="icon-big">' + DOC_SVG + '</span>'
       + '<span class="icon-label">' + escHtml(doc.name) + '</span>';
     return a;
   }

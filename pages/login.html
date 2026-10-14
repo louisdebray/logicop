@@ -6,41 +6,93 @@
 <title>Connexion — Logicop</title>
 <link rel="icon" type="image/png" href="../assets/img/favicon.png">
 <link rel="stylesheet" href="../assets/css/style.css">
+<style>
+  main.login {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-areas: "word word" "intro form";
+    align-items: start;
+    column-gap: clamp(32px, 6vw, 96px);
+    row-gap: 36px;
+    align-content: center;
+    min-height: calc(100dvh - 80px);
+    max-width: 1240px;
+    padding: 48px clamp(24px, 5vw, 64px);
+  }
+  .login-word {
+    grid-area: word;
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: clamp(3rem, 9vw, 8.6rem);
+    line-height: 0.86;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    color: var(--bm-ink);
+    animation: riseIn .6s var(--ease) backwards;
+  }
+  .login-intro { grid-area: intro; padding-top: 8px; }
+  .login-band { position: relative; display: inline-block; margin: 0 0 0 0.2em; transform: rotate(-2.5deg); z-index: 1; }
+  .login-band::before { content: ''; position: absolute; inset: 0; background: var(--bm-gray); transform: translate(8px, 7px) rotate(1.6deg); z-index: -1; }
+  .login-band span { display: block; padding: 0.6em 1.1em 0.55em; background: var(--bm-red); color: #fff; font: 700 0.95rem/1 var(--font-display); letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap; }
+  .login-intro p { margin: 36px 0 0; max-width: 36ch; color: var(--text-dim); font-size: 1.02rem; }
+
+  .login-form {
+    grid-area: form;
+    position: relative;
+    padding: clamp(28px, 4vw, 44px);
+    background: #fff;
+    border: 2px solid var(--bm-ink);
+    box-shadow: 12px 12px 0 var(--bm-red);
+    animation: riseIn .6s var(--ease) .1s backwards;
+  }
+  .login-form h2 { margin: 0 0 6px; font-size: 1.15rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  .login-form .lead { margin: 0 0 26px; color: var(--text-dim); }
+  .login-form .field { margin-bottom: 18px; }
+  .login-form input { width: 100%; min-height: 50px; font-size: 1rem; }
+  .login-form button[type="submit"] { width: 100%; min-height: 56px; margin-top: 6px; font-size: 0.9rem; }
+  .login-help { margin: 22px 0 0; font-size: 0.86rem; color: var(--text-dim); }
+
+  @media (max-width: 860px) {
+    main.login { grid-template-columns: 1fr; grid-template-areas: "word" "intro" "form"; row-gap: 28px; align-items: start; padding: 32px 22px 56px; min-height: 0; }
+    .login-form { box-shadow: 8px 8px 0 var(--bm-red); }
+    .login-intro p { margin-top: 28px; }
+  }
+</style>
 </head>
 <body>
+<a class="skip-link" href="#email">Aller au formulaire</a>
 
-<div class="topbar">
-  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Logicop, accueil"><img class="brand-mark" src="../assets/img/bm-cube.png" alt=""><span class="brand-text"><span class="brand-name">Logicop</span><span class="by-line">Beauce Matériel</span></span></a>
   <nav>
     <a href="../index.html">Accueil</a>
   </nav>
-</div>
+</header>
 
-<main style="max-width:420px;">
-  <div class="hero" style="padding-top:24px;">
-    <h1 style="font-size:1.6rem;">Connexion</h1>
-  </div>
+<main class="login" id="main">
+  <h1 class="login-word">Connexion</h1>
+  <section class="login-intro">
+    <p class="login-band"><span>Votre espace outils</span></p>
+    <p>Identifiez-vous pour retrouver les outils qui vous ont été attribués.</p>
+  </section>
 
-  <form id="loginForm" class="step" action="#" method="post">
-    <div class="row">
-      <div class="field grow">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" autocomplete="email" required>
-      </div>
+  <form id="loginForm" class="login-form" action="#" method="post" novalidate>
+    <h2>Identifiants</h2>
+    <p class="lead">Utilisez l'adresse e-mail de votre compte Logicop.</p>
+    <div class="field">
+      <label for="email">Adresse e-mail</label>
+      <input type="email" id="email" name="email" autocomplete="email" placeholder="prenom.nom@entreprise.fr" required>
     </div>
-    <div class="row">
-      <div class="field grow">
-        <label for="password">Mot de passe</label>
-        <input type="password" id="password" name="password" autocomplete="current-password" required>
-      </div>
+    <div class="field">
+      <label for="password">Mot de passe</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
     </div>
-    <div class="row">
-      <button type="submit" id="btnSubmit" style="width:100%; justify-content:center;">Se connecter</button>
-    </div>
-    <div class="status" id="loginStatus"></div>
+    <button type="submit" id="btnSubmit">Se connecter</button>
+    <div class="status" id="loginStatus" role="alert"></div>
+    <p class="login-help">Pas encore de compte ou mot de passe oublié ? Contactez votre administrateur.</p>
   </form>
-
-  <footer>Logicop</footer>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>

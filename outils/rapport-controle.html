@@ -8,18 +8,18 @@
 <link rel="stylesheet" href="../assets/css/style.css">
 <style>
   .drop-zone {
-    border: 2px dashed var(--panel-border); border-radius: 12px;
+    border: 2px dashed var(--line-strong); border-radius: 0; background: var(--paper);
     padding: 40px 20px; text-align: center; cursor: pointer;
     transition: border-color .2s, background .2s; margin-bottom: 20px;
   }
   .drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--accent); background: rgba(181,80,42,.06);
+    border-color: var(--bm-ink); border-style: solid; background: #fff;
   }
   .drop-zone p { margin: 0; color: var(--text-dim); }
   .drop-zone .big { font-size: 2rem; margin-bottom: 8px; }
   .summary-card {
     background: var(--panel-bg); border: 1px solid var(--panel-border);
-    border-radius: 12px; padding: 20px; margin: 16px 0;
+    border-radius: 0; padding: 20px; margin: 16px 0;
   }
   .summary-card h3 { margin: 0 0 12px; }
   .summary-card .ri { display: flex; gap: 20px; flex-wrap: wrap; margin: 4px 0; }
@@ -49,16 +49,17 @@
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">Aller au contenu</a>
 
-<div class="topbar">
-  <a class="brand" href="../index.html"><img src="../assets/img/logo.png" alt="Logicop"><span class="by-line">by Beauce Matériel</span></a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Logicop, accueil"><img class="brand-mark" src="../assets/img/bm-cube.png" alt=""><span class="brand-text"><span class="brand-name">Logicop</span><span class="by-line">Beauce Matériel</span></span></a>
   <nav><span id="navAccount"></span></nav>
-</div>
+</header>
 
-<main>
-  <p style="margin-bottom:8px;"><a id="backLink" href="../pages/dashboard.html">&larr; Mes outils</a></p>
-  <div class="hero" style="padding-top:16px; text-align:left;">
-    <h1 style="font-size:1.8rem; margin:0;" id="toolTitle">Rapport de contrôle</h1>
+<main id="main">
+  <p class="crumb"><a id="backLink" href="../pages/dashboard.html">Mes outils</a></p>
+  <div class="hero">
+    <h1 id="toolTitle">Rapport de contrôle</h1>
     <p id="toolDesc" style="margin:8px 0 0;"></p>
   </div>
 
@@ -69,7 +70,7 @@
   <div id="content" hidden>
     <div class="step">
       <div class="drop-zone" id="dropZone">
-        <p class="big">📄</p>
+        <p class="big"><svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 10v7M9 14l3 3 3-3"/></svg></p>
         <p>Glissez un PDF de contrôle ici ou <strong>cliquez pour choisir un fichier</strong></p>
         <input type="file" id="fileInput" accept=".pdf" hidden>
       </div>
@@ -95,7 +96,7 @@
       </div>
     </div>
   </div>
-  <footer>Logicop</footer>
+  <footer class="site-footer"><span>Logicop</span><span>Beauce Matériel</span></footer>
 </main>
 
 <script type="module">

@@ -66,11 +66,22 @@ async function renderNavAccount(containerId, basePath) {
   const toolsHref = pagesPath + (isAdmin ? 'admin.html' : 'dashboard.html');
   const toolsLabel = isAdmin ? 'Administration' : 'Mes outils';
   const gestionLink = isGestionnaire && !isAdmin ? `<a href="${pagesPath}gestion.html">Gestion</a>` : '';
+  const email = profile.email || '';
+  const fullName = (profile.full_name || '').trim();
+  const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Initiales : depuis le « Prénom Nom » s'il est renseigné, sinon depuis l'e-mail.
+  const parts = (fullName ? fullName.split(/\s+/) : email.split('@')[0].split(/[._-]+/)).filter(Boolean);
+  const initials = (parts.length > 1 ? parts[0][0] + parts[1][0] : (parts[0] || '?').slice(0, 2)).toUpperCase();
 
   container.innerHTML = `
     <div class="account-menu" id="accountMenuRoot">
-      <button type="button" class="account-menu-btn">Mon compte ▾</button>
+      <button type="button" class="account-menu-btn" aria-haspopup="true" aria-expanded="false">
+        <span class="acct-avatar" aria-hidden="true">${escHtml(initials)}</span>
+        <span class="acct-label">Mon compte</span>
+        <svg class="acct-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
       <div class="account-menu-list">
+        <div class="acct-identity"><small>Connecté</small><strong>${escHtml(fullName || email)}</strong>${fullName ? `<span class="acct-email">${escHtml(email)}</span>` : ''}</div>
         <a href="${toolsHref}">${toolsLabel}</a>
         ${gestionLink}
         <button type="button" id="accountMenuSignOut">Me déconnecter</button>
@@ -78,10 +89,11 @@ async function renderNavAccount(containerId, basePath) {
     </div>`;
 
   const root = document.getElementById('accountMenuRoot');
-  root.querySelector('.account-menu-btn').addEventListener('click', (e) => {
+  const menuBtn = root.querySelector('.account-menu-btn');
+  menuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    root.classList.toggle('open');
+    menuBtn.setAttribute('aria-expanded', String(root.classList.toggle('open')));
   });
-  document.addEventListener('click', () => root.classList.remove('open'));
+  document.addEventListener('click', () => { root.classList.remove('open'); menuBtn.setAttribute('aria-expanded', 'false'); });
   document.getElementById('accountMenuSignOut').addEventListener('click', () => signOut(loginPath));
 }
