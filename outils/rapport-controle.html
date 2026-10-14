@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rapport de contrôle — Logicop</title>
 <link rel="icon" type="image/png" href="../assets/img/favicon.png">
-<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/style.css?v=2">
 <style>
   .drop-zone {
     border: 2px dashed var(--line-strong); border-radius: 0; background: var(--paper);
@@ -27,14 +27,14 @@
   .summary-card .vl { font-weight: 600; }
   .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 20px 0; }
   .preview-frame {
-    border: 1px solid var(--panel-border); border-radius: 8px;
+    border: 2px solid var(--bm-ink); border-radius: 0;
     width: 100%; height: 80vh; background: #fff; margin: 16px 0;
   }
   .actions-post { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 16px 0; }
   .download-toast {
     display: inline-flex; align-items: center; gap: 8px;
-    background: #2e7d32; color: #fff; padding: 10px 20px;
-    border-radius: 8px; font-weight: 600; font-size: 0.92rem;
+    background: var(--ok); color: #fff; padding: 10px 20px;
+    border-radius: 0; font-weight: 600; font-size: 0.92rem;
     opacity: 0; transform: translateY(8px);
     animation: toastIn .35s ease forwards; margin-top: 8px;
   }
@@ -86,7 +86,7 @@
         <div id="toastZone" style="text-align:center;"></div>
       </div>
       <div id="previewArea" hidden>
-        <h2 style="text-align:center; margin:20px 0 4px;">Aperçu du rapport</h2>
+        <h2 style="text-align:center; margin:24px 0 6px; font-size:1.3rem; letter-spacing:0.08em; text-transform:uppercase;">Aperçu du rapport</h2>
         <p style="text-align:center; color:var(--text-dim); font-size:0.88rem; margin:0 0 12px;">Vérifiez que les informations extraites sont correctes. Le fichier Word reste modifiable après téléchargement.</p>
         <div class="actions-post">
           <button id="btnDownloadWord">Télécharger en Word</button>
@@ -105,7 +105,7 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="../assets/js/supabase-config.js"></script>
+<script src="../assets/js/supabase-config.js?v=2"></script>
 <script>
 (function() {
   'use strict';
@@ -1501,26 +1501,28 @@
     var ncCount = data.controlPoints.filter(function(cp) { return cp.status === 'Non conforme'; }).length;
     var avis = data.result.avis === 'favorable' ? 'Avis favorable' : 'Avis défavorable';
 
-    var css = 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#222;margin:30px auto;max-width:800px;padding:0 20px;}'
-      + 'h1{text-align:center;font-size:16pt;margin:0 0 4px;}'
-      + 'h2{font-size:12pt;background:#b5502a;color:#fff;padding:6px 10px;margin:18px 0 0;border-radius:4px 4px 0 0;}'
+    // Aperçu aux couleurs Beauce Matériel : bandeaux rouges, titres en capitales géométriques.
+    var css = 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#2a2a2a;margin:30px auto;max-width:800px;padding:0 20px;}'
+      + 'h1,h2{font-family:Jost,Futura,"Century Gothic",Arial,sans-serif;text-transform:uppercase;}'
+      + 'h1{text-align:center;font-size:17pt;font-weight:900;letter-spacing:.02em;margin:0 0 6px;color:#2a2a2a;}'
+      + 'h2{font-size:10.5pt;font-weight:700;letter-spacing:.1em;background:#c30d26;color:#fff;padding:7px 10px 6px;margin:20px 0 0;}'
       + 'table{width:100%;border-collapse:collapse;margin-bottom:12px;}'
-      + 'td,th{border:1px solid #999;padding:5px 8px;font-size:10pt;vertical-align:top;}'
-      + 'th{background:#f0f0f0;text-align:left;font-weight:600;width:35%;}'
-      + '.status{font-size:9pt;color:#555;}'
-      + '.nc{color:#cc0000;font-weight:700;}'
-      + '.c{color:#2e7d32;}'
-      + '.result-box{text-align:center;font-size:14pt;font-weight:700;padding:12px;margin:12px 0;border:2px solid;border-radius:8px;}'
-      + '.result-box.fav{border-color:#2e7d32;color:#2e7d32;}'
-      + '.result-box.def{border-color:#cc0000;color:#cc0000;}'
+      + 'td,th{border:1px solid #cfcfcc;padding:5px 8px;font-size:10pt;vertical-align:top;}'
+      + 'th{background:#f2f2f1;text-align:left;font-weight:600;width:35%;color:#585857;}'
+      + '.status{font-size:9pt;color:#585857;}'
+      + '.nc{color:#c30d26;font-weight:700;}'
+      + '.c{color:#24764a;}'
+      + '.result-box{font-family:Jost,Futura,Arial,sans-serif;text-transform:uppercase;letter-spacing:.08em;text-align:center;font-size:14pt;font-weight:800;padding:12px;margin:14px 0;border:3px solid;}'
+      + '.result-box.fav{border-color:#24764a;color:#24764a;}'
+      + '.result-box.def{border-color:#c30d26;color:#c30d26;}'
       + '.photos{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:12px 0;}'
       + '.photos figure{margin:0;text-align:center;max-width:230px;}'
-      + '.photos img{max-width:100%;border:1px solid #ccc;border-radius:4px;}'
-      + '.photos figcaption{font-size:9pt;color:#555;margin-top:4px;}'
-      + '.sub{font-size:10pt;text-align:center;color:#555;margin:0 0 20px;}'
-      + '@media print{body{margin:10px;} h2{break-inside:avoid;} @page{size:A4;margin:15mm;}}';
+      + '.photos img{max-width:100%;border:1px solid #cfcfcc;}'
+      + '.photos figcaption{font-size:9pt;color:#585857;margin-top:4px;}'
+      + '.sub{font-size:10pt;text-align:center;color:#585857;margin:0 0 20px;}'
+      + '@media print{body{margin:10px;} h2{break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact;} @page{size:A4;margin:15mm;}}';
 
-    var html = '<!doctype html><html lang="fr"><head><meta charset="UTF-8"><style>' + css + '</style></head><body>';
+    var html = '<!doctype html><html lang="fr"><head><meta charset="UTF-8"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@700;800;900&display=swap"><style>' + css + '</style></head><body>';
     html += '<h1>RAPPORT DE ' + esc(typeLabel) + '</h1>';
     html += '<p class="sub">Établi par ' + esc(data.author || '') + ' le ' + esc(data.editionDate || '') + ' — Réf. ' + esc(data.reference || '') + '</p>';
 

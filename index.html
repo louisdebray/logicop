@@ -6,7 +6,7 @@
 <title>Logicop — Beauce Matériel</title>
 <meta name="description" content="Logicop, l'espace outils de Beauce Matériel.">
 <link rel="icon" type="image/png" href="assets/img/favicon.png">
-<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/style.css?v=2">
 <style>
   body.home-page { background: #fff; }
 
@@ -184,17 +184,17 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="assets/js/supabase-config.js"></script>
+<script src="assets/js/supabase-config.js?v=2"></script>
 <script>
   (async function () {
     const cta = document.getElementById('homeCta');
     cta.setAttribute('aria-busy', 'true');
+    renderNavAccount('navAccount', 'pages/');
     try {
       const { data: { session } } = await supabaseClient.auth.getSession();
       const profile = session ? await loadCurrentProfile() : null;
       if (profile) {
         // Connecté : le bouton principal devient le raccourci vers les outils.
-        renderNavAccount('navAccount', 'pages/');
         cta.href = 'pages/' + (profile.is_admin ? 'admin.html' : 'dashboard.html');
         document.getElementById('homeCtaLabel').textContent = profile.is_admin ? 'Administration' : 'Mes outils';
         document.getElementById('homeLeadSub').textContent = 'Vous êtes connecté : retrouvez tous vos outils sur votre espace.';

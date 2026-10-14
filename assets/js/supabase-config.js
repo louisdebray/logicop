@@ -52,13 +52,13 @@ async function renderNavAccount(containerId, basePath) {
 
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
-    container.innerHTML = `<a href="${loginPath}">Connexion</a>`;
+    container.innerHTML = `<a class="nav-login" href="${loginPath}">Se connecter <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></a>`;
     return;
   }
 
   const profile = await loadCurrentProfile();
   if (!profile) {
-    container.innerHTML = `<a href="${loginPath}">Connexion</a>`;
+    container.innerHTML = `<a class="nav-login" href="${loginPath}">Se connecter <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></a>`;
     return;
   }
   const isAdmin = !!(profile && profile.is_admin);

@@ -186,6 +186,27 @@ a:hover { text-decoration: underline; }
 
 /* ── Menu "Mon compte" ─────────────────────────────────────────────────── */
 .account-menu { position: relative; display: inline-block; margin-left: 10px; }
+
+/* Visiteur non connecté : bouton « Se connecter » à la place du menu compte. */
+a.nav-login {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  margin-left: 10px;
+  padding: 0 18px;
+  background: var(--bm-red);
+  color: #fff;
+  font: 700 0.78rem/1 var(--font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: transform .18s var(--ease), box-shadow .18s var(--ease);
+}
+a.nav-login svg { width: 16px; height: 16px; transition: transform .2s var(--ease); }
+a.nav-login:hover { color: #fff; text-decoration: none; transform: translate(-3px, -3px); box-shadow: 5px 5px 0 var(--bm-gray); }
+a.nav-login:hover svg { transform: translateX(3px); }
+a.nav-login:active { transform: translate(0, 0); box-shadow: none; }
+a.nav-login:focus-visible { outline: 3px solid var(--bm-ink); outline-offset: 3px; }
 .account-menu .account-menu-btn {
   display: inline-flex;
   align-items: center;
@@ -752,7 +773,8 @@ footer, .site-footer {
   .topbar nav > a { padding: 6px 6px; font-size: 0.72rem; }
   .account-menu .account-menu-btn { padding: 3px; gap: 0; }
   .acct-label, .acct-chevron { display: none; }
-  .account-menu { margin-left: 4px; }
+  .account-menu, a.nav-login { margin-left: 4px; }
+  a.nav-login { min-height: 36px; padding: 0 12px; font-size: 0.7rem; }
   .account-menu-list { min-width: 220px; }
 
   main { padding: 20px 16px 48px; }
