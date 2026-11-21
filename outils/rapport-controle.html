@@ -1343,8 +1343,8 @@
       if (/CHK\d+/.test(gt)) {
         allTextNodes[gti].textContent = gt.replace(/CHK\d+/, data.reference || '');
       }
-      if (gt.indexOf('Johnathan') >= 0) {
-        allTextNodes[gti].textContent = gt.replace(/Johnathan(?! BEURY)/g, CONTROLEUR);
+      if (gt.indexOf('Jonathan') >= 0) {
+        allTextNodes[gti].textContent = gt.replace(/Jonathan(?! BEURY)/g, CONTROLEUR);
       }
       if (gt.indexOf('EUROFEU') >= 0) {
         allTextNodes[gti].textContent = gt.replace(/EUROFEU/g, data.client.name || '');
