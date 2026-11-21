@@ -112,6 +112,10 @@
 
   var CONTROLEUR = 'Johnathan BEURY';
 
+  // Retire « , si nécessaire » / « , si applicable(s) » des libellés de points de contrôle.
+  var CONDITION_RE = /,?\s*si\s+(?:n[ée]cessaire|applicables?)\b/gi;
+  function stripConditions(t) { return String(t || '').replace(CONDITION_RE, ''); }
+
   var REPORT_TITLES = {
     vgp: 'VÉRIFICATION GÉNÉRALE PÉRIODIQUE',
     mise_en_service: 'MISE EN SERVICE INITIALE',
@@ -1316,6 +1320,10 @@
     // Global sweep: replace any remaining template placeholder text
     var allTextNodes = doc.getElementsByTagNameNS(WNS, 't');
     for (var gti = 0; gti < allTextNodes.length; gti++) {
+      if (CONDITION_RE.test(allTextNodes[gti].textContent)) {
+        allTextNodes[gti].textContent = stripConditions(allTextNodes[gti].textContent);
+      }
+      CONDITION_RE.lastIndex = 0;
       var gt = allTextNodes[gti].textContent;
       if (/CHK\d+/.test(gt)) {
         allTextNodes[gti].textContent = gt.replace(/CHK\d+/, data.reference || '');
@@ -1577,7 +1585,7 @@
         var st = pts[j].status;
         var cls = st === 'Non conforme' ? 'nc' : (st === 'Conforme' ? 'c' : '');
         var annoHtml = pts[j].annotation ? '<br><em style="color:#cc0000;font-size:9pt;">Annotation : ' + esc(pts[j].annotation) + '</em>' : '';
-        html += '<tr><td>' + esc(pts[j].name) + annoHtml + '</td><td class="status ' + cls + '">' + esc(st) + '</td></tr>';
+        html += '<tr><td>' + esc(stripConditions(pts[j].name)) + annoHtml + '</td><td class="status ' + cls + '">' + esc(st) + '</td></tr>';
       }
       html += '</table>';
     }
