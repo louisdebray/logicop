@@ -86,7 +86,7 @@
     ];
     const ICON_BY_TYPE = {
       capacite_residuelle: 'forklift', transport: 'truck', documents: 'documents', qrcode_blg: 'qrcode',
-      coefficient: 'chart', etiquettes_blg: 'tag', rapport_controle: 'clipboard',
+      coefficient: 'chart', etiquettes_blg: 'tag', rapport_controle: 'clipboard', rapport_controle_2: 'clipboard',
       catalogue_produits: 'catalogue', bibliotheque_prompts: 'prompt',
     };
     function toolIconHtml(tool) {
@@ -106,6 +106,7 @@
       if (appType === 'coefficient') return `../outils/simulation-coefficient.html?tool=${tool.id}`;
       if (appType === 'etiquettes_blg') return `../outils/etiquettes-blg.html?tool=${tool.id}`;
       if (appType === 'rapport_controle') return `../outils/rapport-controle.html?tool=${tool.id}`;
+      if (appType === 'rapport_controle_2') return `../outils/rapport-controle-2.html?tool=${tool.id}`;
       if (appType === 'catalogue_produits') return `../outils/catalogue-produits.html?tool=${tool.id}`;
       if (appType === 'bibliotheque_prompts') return `../outils/bibliotheque-prompts.html?tool=${tool.id}`;
       return `../outils/executer-devis.html?tool=${tool.id}`;
