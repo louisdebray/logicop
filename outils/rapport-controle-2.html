@@ -1294,16 +1294,23 @@
       }
       if (!nameSet && sn0.length) sn0[sn0.length - 1].textContent = CONTROLEUR;
     }
-    // Cell 1 = "Date :" — ensure no dynamic data leaks in
+    // Cell 1 = "Date :" — date du contrôle, écrite après le libellé
     var sigCell1 = getTableCell(tables[14], 0, 1);
     if (sigCell1) {
       var sn1 = getAllTextNodes(sigCell1);
+      var dateSet = false;
       for (var si2 = 0; si2 < sn1.length; si2++) {
-        var stxt2 = sn1[si2].textContent.trim();
-        if (stxt2 && stxt2.indexOf('Date') < 0 && stxt2 !== ':' && stxt2 !== ' : ') {
+        var stxt2 = sn1[si2].textContent;
+        if (stxt2.indexOf('Date') >= 0) continue;
+        if (!dateSet) {
+          sn1[si2].textContent = ' ' + (data.date || '');
+          sn1[si2].setAttribute('xml:space', 'preserve');
+          dateSet = true;
+        } else {
           sn1[si2].textContent = '';
         }
       }
+      if (!dateSet && sn1.length) sn1[sn1.length - 1].textContent += ' ' + (data.date || '');
     }
 
     // Global sweep: replace any remaining template placeholder text
@@ -1612,8 +1619,8 @@
     try {
       generatedDocxBlob = await generateDocx(parsedData);
       var typeLabel = parsedData.reportType === 'vgp' ? 'VGP' :
-                      parsedData.reportType === 'mise_en_service' ? 'Mise en service initiale' : 'Remise en service';
-      var dateForFile = (parsedData.date || '').replace(/\//g, '-'); // « / » interdit dans un nom de fichier
+                      parsedData.reportType === 'mise_en_service' ? 'Mise en service' : 'Remise en service';
+      var dateForFile = (parsedData.date || '').replace(/\D/g, ''); // 29/08/2026 -> 29082026
       generatedFileName = (parsedData.machine.parc || 'N° BM') + ' ' + typeLabel + (dateForFile ? ' le ' + dateForFile : '');
 
       var previewHtml = buildPreviewHtml(parsedData);
