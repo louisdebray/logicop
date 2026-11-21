@@ -406,17 +406,32 @@
       m = text.match(/Par\s*:\s*(.+)/);
       if (m) data.author = m[1].trim();
 
-      if (/^[A-ZÀ-Ü][A-ZÀ-Ü\s&]{2,}$/.test(text.trim()) && !data.client.name && !text.match(/BEAUCE|BROUILLON|GERBEUR|CHARIOT|TRANSPALETTE/)) {
-        data.client.name = text.trim();
-      }
-
       m = text.match(/N° compte\s+(\S+)/);
-      if (m) data.client.account = m[1];
+      if (m && !data.client.account) {
+        data.client.account = m[1];
+        // Bloc client : le nom est la ligne juste au-dessus de « N° compte »,
+        // l'adresse les lignes collées juste en dessous (quel que soit leur format).
+        var prevText = i > 0 ? lineText(lines[i - 1]).trim() : '';
+        if (prevText && !/^Date\s*:|^Rapport de contr|Par\s*:/.test(prevText)) data.client.name = prevText;
+        var addr = [];
+        var lastY = lines[i][0].y;
+        for (var ai2 = i + 1; ai2 < lines.length && addr.length < 3; ai2++) {
+          var aY = lines[ai2][0].y;
+          if (Math.abs(aY - lastY) > 20) break;
+          var aTxt = lineText(lines[ai2]).trim();
+          if (!aTxt || / - |N° série|N° parc/.test(aTxt)) break;
+          addr.push(aTxt);
+          lastY = aY;
+        }
+        if (addr.length) data.client.address = addr.join(', ');
+      }
+    }
 
-      if (data.client.account && !data.client.address && /^\d/.test(text.trim()) && text.indexOf('N°') < 0 && text.indexOf(' - ') < 0) {
-        data.client.address = text.trim();
-        var next = i + 1 < lines.length ? lineText(lines[i + 1]) : '';
-        if (/^\d{5}/.test(next)) data.client.address += ', ' + next;
+    // Ancien repérage, en secours si le PDF n'a pas de ligne « N° compte »
+    if (!data.client.name) {
+      for (var ci = 0; ci < lines.length; ci++) {
+        var ct = lineText(lines[ci]).trim();
+        if (/^[A-ZÀ-Ü][A-ZÀ-Ü\s&]{2,}$/.test(ct) && !/BROUILLON|GERBEUR|CHARIOT|TRANSPALETTE/.test(ct)) { data.client.name = ct; break; }
       }
     }
 
@@ -1386,6 +1401,10 @@
       var photoIdx = 0;
       while (photoIdx < data.photos.length) {
         var newRow = doc.createElementNS(WNS, 'w:tr');
+        // Une ligne de photos ne se coupe jamais entre deux pages : image et légende restent ensemble.
+        var photoTrPr = doc.createElementNS(WNS, 'w:trPr');
+        photoTrPr.appendChild(doc.createElementNS(WNS, 'w:cantSplit'));
+        newRow.appendChild(photoTrPr);
         for (var col = 0; col < 3 && photoIdx < data.photos.length; col++, photoIdx++) {
           var photo = data.photos[photoIdx];
           var imgName = 'photo' + (photoIdx + 1) + '.png';
@@ -1427,6 +1446,18 @@
             r.appendChild(t);
             p.appendChild(r);
             cell.appendChild(p);
+          }
+          // Chaque paragraphe (image) reste attaché au suivant (légende).
+          var cellParas = cell.getElementsByTagNameNS(WNS, 'p');
+          for (var cp = 0; cp < cellParas.length - 1; cp++) {
+            var cpPr = cellParas[cp].getElementsByTagNameNS(WNS, 'pPr')[0];
+            if (!cpPr) { cpPr = doc.createElementNS(WNS, 'w:pPr'); cellParas[cp].insertBefore(cpPr, cellParas[cp].firstChild); }
+            // Ordre imposé par Word dans <w:pPr> : pStyle, puis keepNext, puis keepLines.
+            var anchorEl = cpPr.getElementsByTagNameNS(WNS, 'pStyle')[0];
+            var insertRef = anchorEl ? anchorEl.nextSibling : cpPr.firstChild;
+            var kn = cpPr.getElementsByTagNameNS(WNS, 'keepNext')[0];
+            if (!kn) { kn = doc.createElementNS(WNS, 'w:keepNext'); cpPr.insertBefore(kn, insertRef); }
+            if (!cpPr.getElementsByTagNameNS(WNS, 'keepLines').length) cpPr.insertBefore(doc.createElementNS(WNS, 'w:keepLines'), kn.nextSibling);
           }
           newRow.appendChild(cell);
         }
