@@ -497,23 +497,6 @@
     await loadTools();
   });
 
-  el('btnNewRapport2').addEventListener('click', async () => {
-    const name = prompt('Nom de l\'outil :', 'Rapport de contrôle 2');
-    if (name === null || !name.trim()) return;
-    const description = prompt('Description (visible par le client) :',
-      'Générez un rapport de contrôle Word à partir d\'un PDF.');
-    if (description === null) return;
-
-    const { error } = await supabaseClient.from('tools').insert({
-      name: name.trim(),
-      description: description.trim(),
-      slug: slugify(name.trim()),
-      config: { appType: 'rapport_controle_2' },
-    });
-    if (error) { alert(error.message); return; }
-    await loadTools();
-  });
-
   el('btnNewCatalogue').addEventListener('click', async () => {
     const name = prompt('Nom de l\'outil :', 'Catalogue produits');
     if (name === null || !name.trim()) return;

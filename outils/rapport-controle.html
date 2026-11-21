@@ -110,6 +110,12 @@
 (function() {
   'use strict';
 
+  var CONTROLEUR = 'Johnathan BEURY';
+
+  // Retire « , si nécessaire » / « , si applicable(s) » des libellés de points de contrôle.
+  var CONDITION_RE = /,?\s*si\s+(?:n[ée]cessaire|applicables?)\b/gi;
+  function stripConditions(t) { return String(t || '').replace(CONDITION_RE, ''); }
+
   var REPORT_TITLES = {
     vgp: 'VÉRIFICATION GÉNÉRALE PÉRIODIQUE',
     mise_en_service: 'MISE EN SERVICE INITIALE',
@@ -978,8 +984,8 @@
         }
         // Run 2: clear (was second part of title)
         getAllTextNodes(t0runs[2]).forEach(function(n) { n.textContent = ''; });
-        // Run 3: "Établi par..."
-        getAllTextNodes(t0runs[3]).forEach(function(n) { n.textContent = 'Établi par ' + (data.author || '') + ' le ' + (data.editionDate || ''); });
+        // Run 3 : ancienne ligne « Établi par … », vidée dans cette version
+        getAllTextNodes(t0runs[3]).forEach(function(n) { n.textContent = ''; });
       }
     }
 
@@ -1024,7 +1030,7 @@
       data.lieu || '',
       data.date || '',
       data.reference || '',
-      data.inspectorName || '',
+      CONTROLEUR,
       data.periodicite || '',
       prochainControle
     ];
@@ -1286,33 +1292,44 @@
       for (var si = 0; si < sn0.length; si++) {
         var stxt = sn0[si].textContent.trim();
         if (stxt && stxt.indexOf('Nom') < 0 && stxt.indexOf('contrôleur') < 0 && stxt.indexOf('controleur') < 0 && stxt !== ':' && stxt !== ' : ') {
-          sn0[si].textContent = data.inspectorName || '';
+          sn0[si].textContent = CONTROLEUR;
           nameSet = true;
         }
       }
-      if (!nameSet && sn0.length) sn0[sn0.length - 1].textContent = data.inspectorName || '';
+      if (!nameSet && sn0.length) sn0[sn0.length - 1].textContent = CONTROLEUR;
     }
-    // Cell 1 = "Date :" — ensure no dynamic data leaks in
+    // Cell 1 = "Date :" — date du contrôle, écrite après le libellé
     var sigCell1 = getTableCell(tables[14], 0, 1);
     if (sigCell1) {
       var sn1 = getAllTextNodes(sigCell1);
+      var dateSet = false;
       for (var si2 = 0; si2 < sn1.length; si2++) {
-        var stxt2 = sn1[si2].textContent.trim();
-        if (stxt2 && stxt2.indexOf('Date') < 0 && stxt2 !== ':' && stxt2 !== ' : ') {
+        var stxt2 = sn1[si2].textContent;
+        if (stxt2.indexOf('Date') >= 0) continue;
+        if (!dateSet) {
+          sn1[si2].textContent = ' ' + (data.date || '');
+          sn1[si2].setAttribute('xml:space', 'preserve');
+          dateSet = true;
+        } else {
           sn1[si2].textContent = '';
         }
       }
+      if (!dateSet && sn1.length) sn1[sn1.length - 1].textContent += ' ' + (data.date || '');
     }
 
     // Global sweep: replace any remaining template placeholder text
     var allTextNodes = doc.getElementsByTagNameNS(WNS, 't');
     for (var gti = 0; gti < allTextNodes.length; gti++) {
+      if (CONDITION_RE.test(allTextNodes[gti].textContent)) {
+        allTextNodes[gti].textContent = stripConditions(allTextNodes[gti].textContent);
+      }
+      CONDITION_RE.lastIndex = 0;
       var gt = allTextNodes[gti].textContent;
       if (/CHK\d+/.test(gt)) {
         allTextNodes[gti].textContent = gt.replace(/CHK\d+/, data.reference || '');
       }
       if (gt.indexOf('Johnathan') >= 0) {
-        allTextNodes[gti].textContent = gt.replace(/Johnathan/g, data.inspectorName || '');
+        allTextNodes[gti].textContent = gt.replace(/Johnathan(?! BEURY)/g, CONTROLEUR);
       }
       if (gt.indexOf('EUROFEU') >= 0) {
         allTextNodes[gti].textContent = gt.replace(/EUROFEU/g, data.client.name || '');
@@ -1524,7 +1541,7 @@
 
     var html = '<!doctype html><html lang="fr"><head><meta charset="UTF-8"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@700;800;900&display=swap"><style>' + css + '</style></head><body>';
     html += '<h1>RAPPORT DE ' + esc(typeLabel) + '</h1>';
-    html += '<p class="sub">Établi par ' + esc(data.author || '') + ' le ' + esc(data.editionDate || '') + ' — Réf. ' + esc(data.reference || '') + '</p>';
+    html += '<p class="sub">Réf. ' + esc(data.reference || '') + '</p>';
 
     html += '<p style="text-align:left;font-size:9pt;font-style:italic;color:#555;margin:0 0 8px;">Réalisé conformément à l\'arrêté du 1er mars 2004.</p>';
     html += '<h2>Informations générales</h2><table>';
@@ -1533,7 +1550,7 @@
     html += tr('Lieu de vérification', data.lieu);
     html += tr('Date', data.date);
     html += tr('Référence', data.reference);
-    html += tr('Inspecteur', data.inspectorName);
+    html += tr('Contrôleur', CONTROLEUR);
     html += tr('Périodicité', data.periodicite);
     html += '</table>';
 
@@ -1568,7 +1585,7 @@
         var st = pts[j].status;
         var cls = st === 'Non conforme' ? 'nc' : (st === 'Conforme' ? 'c' : '');
         var annoHtml = pts[j].annotation ? '<br><em style="color:#cc0000;font-size:9pt;">Annotation : ' + esc(pts[j].annotation) + '</em>' : '';
-        html += '<tr><td>' + esc(pts[j].name) + annoHtml + '</td><td class="status ' + cls + '">' + esc(st) + '</td></tr>';
+        html += '<tr><td>' + esc(stripConditions(pts[j].name)) + annoHtml + '</td><td class="status ' + cls + '">' + esc(st) + '</td></tr>';
       }
       html += '</table>';
     }
@@ -1610,9 +1627,9 @@
     try {
       generatedDocxBlob = await generateDocx(parsedData);
       var typeLabel = parsedData.reportType === 'vgp' ? 'VGP' :
-                      parsedData.reportType === 'mise_en_service' ? 'MES' : 'RES';
-      var dateForFile = (parsedData.date || '').replace(/\//g, '-');
-      generatedFileName = (parsedData.machine.parc || 'parc') + ' ' + typeLabel + ' ' + dateForFile;
+                      parsedData.reportType === 'mise_en_service' ? 'Mise en service' : 'Remise en service';
+      var dateForFile = (parsedData.date || '').replace(/\D/g, ''); // 29/08/2026 -> 29082026
+      generatedFileName = (parsedData.machine.parc || 'N° BM') + ' ' + typeLabel + (dateForFile ? ' le ' + dateForFile : '');
 
       var previewHtml = buildPreviewHtml(parsedData);
       var frame = document.getElementById('previewFrame');
