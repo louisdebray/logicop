@@ -92,6 +92,7 @@
           <button id="btnDownloadWord">Télécharger en Word</button>
           <button class="secondary" id="btnResetPreview">Nouveau fichier</button>
         </div>
+        <div class="status" id="saveStatus" role="alert" style="max-width:640px; margin:0 auto 12px;"></div>
         <iframe id="previewFrame" class="preview-frame" sandbox="allow-same-origin allow-modals"></iframe>
       </div>
     </div>
@@ -1744,30 +1745,51 @@
   }
 
   function downloadBlob(blob, name) {
-    if (window.showSaveFilePicker) {
-      var ext = name.endsWith('.pdf') ? '.pdf' : '.docx';
-      var mime = ext === '.pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      window.showSaveFilePicker({
-        suggestedName: name,
-        types: [{ description: ext === '.pdf' ? 'Document PDF' : 'Document Word', accept: {} }]
-      }).then(function(handle) {
-        handle.createWritable().then(function(w) { w.write(blob).then(function() { w.close(); showToast('Fichier enregistré !'); }); });
-      }).catch(function(e) {
-        if (e.name !== 'AbortError') fallbackDownload(blob, name);
+    setSaveStatus('');
+    if (!window.showSaveFilePicker) { fallbackDownload(blob, name); return; }
+    var ext = name.endsWith('.pdf') ? '.pdf' : '.docx';
+    var mime = ext === '.pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    var accept = {}; accept[mime] = [ext];
+    var opts = { suggestedName: name, types: [{ description: ext === '.pdf' ? 'Document PDF' : 'Document Word', accept: accept }] };
+    window.showSaveFilePicker(opts).then(function(handle) {
+      // Écriture à l'emplacement choisi : chaque étape est attendue, pour qu'un blocage
+      // (protection Windows, antivirus, droits du dossier…) ne passe jamais inaperçu.
+      return handle.createWritable().then(function(w) {
+        return w.write(blob).then(function() { return w.close(); });
+      }).then(function() {
+        showToast('Fichier enregistré !');
+      }, function(err) {
+        console.error('Enregistrement impossible à l\'emplacement choisi :', err);
+        fallbackDownload(blob, name, true);
       });
+    }, function(e) {
+      if (e && e.name === 'AbortError') return;      // l'utilisateur a fermé la fenêtre
+      console.error('Fenêtre d\'enregistrement indisponible :', e);
+      fallbackDownload(blob, name, true);
+    });
+  }
+
+  function setSaveStatus(msg) {
+    var st = document.getElementById('saveStatus');
+    if (!st) return;
+    st.textContent = msg;
+    st.className = msg ? 'status err show' : 'status';
+  }
+
+  function fallbackDownload(blob, name, afterFailure) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 10000);
+    if (afterFailure) {
+      setSaveStatus('L\'enregistrement à l\'emplacement choisi a été bloqué par l\'ordinateur (protection Windows, antivirus ou droits du dossier). Le fichier « ' + name + ' » a été placé dans votre dossier Téléchargements.');
     } else {
-      fallbackDownload(blob, name);
+      showToast('Fichier téléchargé !');
     }
   }
 
-  function fallbackDownload(blob, name) {
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast('Fichier téléchargé !');
-  }
 
   function handleDownloadWord() {
     if (!generatedDocxBlob) return;
