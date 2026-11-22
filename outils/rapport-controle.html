@@ -573,6 +573,10 @@
     for (var el = 0; el < lines.length; el++) {
       var elt = lineText(lines[el]);
       if (/quipement\(s\)/i.test(elt) && elt.indexOf('Réf') < 0 && elt.indexOf('réf') < 0) {
+        // Nouveau formulaire : « Équipement(s) » est un champ texte sur la même ligne (ex. « TDL rapporté »).
+        var eqFree = lines[el].filter(function(it) { return it.x > 150 && it.x < 300 && it.str.trim() && !isAnyCheckboxChar(it.str.trim().charAt(0)) && !/quipement/i.test(it.str); })
+          .map(function(it) { return it.str.trim(); }).join(' ').trim();
+        if (eqFree) equips.push(eqFree);
         inEquipSection = true; continue;
       }
       if (inEquipSection && /Longueur|Commentaire|Signature|Capacité de fourches/.test(elt)) break;
