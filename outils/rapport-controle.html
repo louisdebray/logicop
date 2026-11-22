@@ -114,6 +114,17 @@
 
   // Retire « , si nécessaire » / « , si applicable(s) » des libellés de points de contrôle.
   var CONDITION_RE = /,?\s*si\s+(?:n[ée]cessaire|applicables?)\b/gi;
+  function setKeepNext(p) {
+    var WNS_ = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    var docEl = p.ownerDocument;
+    var pPr = null;
+    for (var c = p.firstChild; c; c = c.nextSibling) if (c.nodeType === 1 && c.localName === 'pPr') { pPr = c; break; }
+    if (!pPr) { pPr = docEl.createElementNS(WNS_, 'w:pPr'); p.insertBefore(pPr, p.firstChild); }
+    for (var k = pPr.firstChild; k; k = k.nextSibling) if (k.nodeType === 1 && k.localName === 'keepNext') return;
+    var ref = pPr.firstChild;
+    if (ref && ref.nodeType === 1 && ref.localName === 'pStyle') ref = ref.nextSibling;
+    pPr.insertBefore(docEl.createElementNS(WNS_, 'w:keepNext'), ref);
+  }
   function stripConditions(t) { return String(t || '').replace(CONDITION_RE, ''); }
 
   var REPORT_TITLES = {
@@ -1155,23 +1166,6 @@
       var secPoints = data.controlPoints.filter(function(cp) { return cp.section === secName; });
       var tblRows = getTableRows(tables[tableIdx]);
 
-      // Add keepNext on section title row (row 0) so it's never alone at page bottom
-      if (tblRows.length > 0) {
-        var titleRow = tblRows[0];
-        var titleParas = titleRow.getElementsByTagNameNS(WNS, 'p');
-        for (var tp = 0; tp < titleParas.length; tp++) {
-          var pPr = titleParas[tp].getElementsByTagNameNS(WNS, 'pPr');
-          if (!pPr.length) {
-            var newPPr = doc.createElementNS(WNS, 'w:pPr');
-            titleParas[tp].insertBefore(newPPr, titleParas[tp].firstChild);
-            pPr = [newPPr];
-          }
-          if (!pPr[0].getElementsByTagNameNS(WNS, 'keepNext').length) {
-            pPr[0].appendChild(doc.createElementNS(WNS, 'w:keepNext'));
-          }
-        }
-      }
-
       var rowsToRemove = [];
       for (var ri = 0; ri < tblRows.length; ri++) {
         var cells = getRowCells(tblRows[ri]);
@@ -1466,6 +1460,26 @@
 
       zip.file('word/_rels/document.xml.rels', new XMLSerializer().serializeToString(relsDoc));
     }
+
+    // Titres de section (paragraphes rouges posés avant chaque tableau) : jamais seuls en bas de page.
+    // Le titre, et les éventuels paragraphes vides qui le séparent du tableau, restent attachés à la
+    // première ligne du tableau. Le reste de la section peut, lui, continuer sur la page suivante.
+    var bodyEl = doc.getElementsByTagNameNS(WNS, 'body')[0];
+    var bodyTables = [];
+    for (var bc = bodyEl.firstChild; bc; bc = bc.nextSibling) {
+      if (bc.nodeType === 1 && bc.localName === 'tbl') bodyTables.push(bc);
+    }
+    bodyTables.forEach(function(tbl) {
+      var prev = tbl.previousSibling;
+      while (prev && (prev.nodeType !== 1 || prev.localName === 'bookmarkStart' || prev.localName === 'bookmarkEnd')) prev = prev.previousSibling;
+      while (prev && prev.nodeType === 1 && prev.localName === 'p') {
+        setKeepNext(prev);
+        var hasText = Array.prototype.some.call(prev.getElementsByTagNameNS(WNS, 't'), function(t) { return t.textContent.trim(); });
+        if (hasText) break;              // titre trouvé
+        prev = prev.previousSibling;
+        while (prev && prev.nodeType !== 1) prev = prev.previousSibling;
+      }
+    });
 
     // Serialize back
     var serializer = new XMLSerializer();
