@@ -114,6 +114,24 @@
 
   // Retire « , si nécessaire » / « , si applicable(s) » des libellés de points de contrôle.
   var CONDITION_RE = /,?\s*si\s+(?:n[ée]cessaire|applicables?)\b/gi;
+  // Association ligne du modèle ↔ point du PDF : égalité exacte d'abord, inclusion ensuite.
+  function matchRowToPoint(rowName, points) {
+    var rowKey = normalize(rowName);
+    if (!rowKey) return null;
+    for (var i = 0; i < points.length; i++) if (normalize(points[i].name) === rowKey) return points[i];
+    for (var j = 0; j < points.length; j++) {
+      var k = normalize(points[j].name);
+      if (k && (k.indexOf(rowKey) >= 0 || rowKey.indexOf(k) >= 0)) return points[j];
+    }
+    return null;
+  }
+  function rowPointName(row) {
+    var cells = getRowCells(row);
+    if (!cells.length) return '';
+    var txt = getAllTextNodes(cells[0]).map(function(n) { return n.textContent; }).join('');
+    return txt.replace(/[☑☐]\s*(Conforme|Non conforme|Non concerné)/g, '').replace(/\s+/g, ' ').trim();
+  }
+
   function setKeepNext(p) {
     var WNS_ = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
     var docEl = p.ownerDocument;
@@ -329,7 +347,7 @@
             if (isSec) break;
             if (aText === 'Résultat du contrôle' || aText === 'Avis général' ||
                 aText.indexOf('Avis favorable') >= 0 || aText.indexOf('Avis défavorable') >= 0) break;
-            if (/^(Informations|Type de rapport|Identification|Nom de l|Lieu de|Date de|Périodicité|Année|N° série|Horamètre|N° parc|Réf\.|CMU|Hauteur|Type de mât|Marquage|Longueur|Largeur|Épaisseur|Capacité|Équipement|☑|■|Signature)/.test(aText)) break;
+            if (/^(Informations|Type de rapport|Identification|Nom de l|Lieu de|Date de|Périodicité|Année|N° série|Horamètre|N° parc|Réf\.|CMU(?:\s*$|\s+\d)|Hauteur|Type de mât|Marquage CE|Longueur|Largeur|Épaisseur|Capacité|Équipement|☑|■|Signature)/.test(aText)) break;
             var firstX = aLine[0].x;
             if (Math.abs(firstX - nameX) < 20 && aText.length > 1 && aText.length < 200) {
               var nextIsName = (ai + 1 < lines.length && isStatusLine(lines[ai + 1]));
@@ -349,7 +367,7 @@
         continue;
       }
 
-      if (/^(Informations|Type de rapport|Identification|Nom de l|Lieu de|Date de|Périodicité|Année|N° série|Horamètre|N° parc|Réf\.|CMU|Hauteur|Type de mât|Marquage|Longueur|Largeur|Épaisseur|Capacité|Équipement|☑|■|Signature)/.test(text)) {
+      if (/^(Informations|Type de rapport|Identification|Nom de l|Lieu de|Date de|Périodicité|Année|N° série|Horamètre|N° parc|Réf\.|CMU(?:\s*$|\s+\d)|Hauteur|Type de mât|Marquage CE|Longueur|Largeur|Épaisseur|Capacité|Équipement|☑|■|Signature)/.test(text)) {
         continue;
       }
 
@@ -1166,6 +1184,32 @@
       var secPoints = data.controlPoints.filter(function(cp) { return cp.section === secName; });
       var tblRows = getTableRows(tables[tableIdx]);
 
+      // Points du PDF sans ligne dans le modèle (formulaire plus récent : point ajouté ou renommé) :
+      // on ajoute une ligne copiée sur une ligne de la section, placée après le point qui le précède.
+      if (tblRows.length && secPoints.length) {
+        var refRow = tblRows[0].cloneNode(true);
+        var rowFor = new Map();
+        tblRows.forEach(function(row) {
+          var mp = matchRowToPoint(rowPointName(row), secPoints);
+          if (mp && !rowFor.has(mp)) rowFor.set(mp, row);
+        });
+        var lastRow = null;
+        secPoints.forEach(function(pt) {
+          if (rowFor.has(pt)) { lastRow = rowFor.get(pt); return; }
+          var newRowEl = refRow.cloneNode(true);
+          var nameParas = getRowCells(newRowEl)[0].getElementsByTagNameNS(WNS, 'p');
+          var nameNodes = nameParas.length ? getAllTextNodes(nameParas[0]) : [];
+          nameNodes.forEach(function(n, idx) { n.textContent = idx === 0 ? pt.name : ''; });
+          var tblEl = tables[tableIdx];
+          if (lastRow && lastRow.nextSibling) tblEl.insertBefore(newRowEl, lastRow.nextSibling);
+          else if (lastRow) tblEl.appendChild(newRowEl);
+          else tblEl.insertBefore(newRowEl, getTableRows(tblEl)[0]);
+          rowFor.set(pt, newRowEl);
+          lastRow = newRowEl;
+        });
+        tblRows = getTableRows(tables[tableIdx]);
+      }
+
       var rowsToRemove = [];
       for (var ri = 0; ri < tblRows.length; ri++) {
         var cells = getRowCells(tblRows[ri]);
@@ -1173,16 +1217,14 @@
         var cellText = getAllTextNodes(cells[0]).map(function(n) { return n.textContent; }).join('');
         var pointName = cellText.replace(/[☑☐]\s*(Conforme|Non conforme|Non concerné)/g, '').replace(/\s+/g, ' ').trim();
 
-        var matchedPoint = null;
-        for (var pi = 0; pi < secPoints.length; pi++) {
-          var pName = secPoints[pi].name.replace(/\s+/g, ' ').trim();
-          if (pointName.indexOf(pName) >= 0 || pName.indexOf(pointName) >= 0 ||
-              normalize(pointName) === normalize(pName)) {
-            matchedPoint = secPoints[pi];
-            break;
-          }
-        }
+        var matchedPoint = matchRowToPoint(pointName, secPoints);
 
+        // Le libellé du Word reprend toujours celui du PDF (le formulaire évolue, le modèle non).
+        if (matchedPoint && normalize(pointName) !== normalize(matchedPoint.name)) {
+          var lblParas = cells[0].getElementsByTagNameNS(WNS, 'p');
+          var lblNodes = lblParas.length ? getAllTextNodes(lblParas[0]) : [];
+          lblNodes.forEach(function(n, idx) { n.textContent = idx === 0 ? matchedPoint.name : ''; });
+        }
         if (matchedPoint) {
           if (matchedPoint.status === 'Non concerné') {
             rowsToRemove.push(tblRows[ri]);
@@ -1492,8 +1534,15 @@
     });
   }
 
+  // Clé de comparaison d'un libellé : insensible aux apostrophes (’ ‘ ' `), aux accents, à la casse,
+  // à la ponctuation et aux mentions « si nécessaire / si applicable ».
   function normalize(s) {
-    return (s || '').toLowerCase().replace(/['']/g, "'").replace(/\s+/g, ' ').replace(/[^\w\s'àâäéèêëïîôùûüÿçœæ]/gi, '').trim();
+    return stripConditions(s || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[\u2018\u2019\u201A\u201B\u0060\u00B4\u2032]/g, "'")
+      .replace(/[^a-z0-9']+/g, ' ')
+      .replace(/\s+/g, ' ').trim();
   }
 
   // ============== UI ==============
